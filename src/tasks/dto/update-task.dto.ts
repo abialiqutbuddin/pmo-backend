@@ -1,0 +1,10 @@
+import { IsISO8601, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+export class UpdateTaskDto {
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(5) priority?: number;
+  @IsOptional() @IsISO8601() startAt?: string | null;
+  @IsOptional() @IsISO8601() dueAt?: string | null;
+  @IsOptional() @IsString() assigneeId?: string | null;
+}

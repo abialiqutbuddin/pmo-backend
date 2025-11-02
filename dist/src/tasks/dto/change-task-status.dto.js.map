@@ -1,0 +1,1 @@
+{"version":3,"file":"change-task-status.dto.js","sourceRoot":"","sources":["../../../../src/tasks/dto/change-task-status.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,qDAA4D;AAC5D,2CAA4C;AAE5C,MAAa,mBAAmB;IACV,MAAM,CAAc;IACjB,WAAW,CAAU;CAC7C;AAHD,kDAGC;AAFqB;IAAnB,IAAA,wBAAM,EAAC,mBAAU,CAAC;;mDAAqB;AACjB;IAAtB,IAAA,4BAAU,GAAE;IAAE,IAAA,uBAAK,GAAE;;wDAAsB"}
