@@ -22,14 +22,8 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
         conversationId: string;
         body?: string;
         parentId?: string;
-    }, client: Socket): Promise<{
-        id: string;
-        body: string | null;
-        createdAt: Date;
-        conversationId: string;
-        authorId: string;
-        parentId: string | null;
-    }>;
+    }, client: Socket): Promise<any>;
+    kickFromConversation(conversationId: string, userId: string): Promise<void>;
     onAttachmentUploaded(body: {
         messageId: string;
     }, client: Socket): Promise<{

@@ -15,9 +15,11 @@ class CreateTaskDto {
     title;
     description;
     priority;
+    type;
     startAt;
     dueAt;
     assigneeId;
+    venueId;
 }
 exports.CreateTaskDto = CreateTaskDto;
 __decorate([
@@ -38,6 +40,11 @@ __decorate([
 ], CreateTaskDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['issue', 'new_task', 'taujeeh', 'improvement']),
+    __metadata("design:type", String)
+], CreateTaskDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsISO8601)(),
     __metadata("design:type", String)
 ], CreateTaskDto.prototype, "startAt", void 0);
@@ -51,4 +58,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateTaskDto.prototype, "assigneeId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateTaskDto.prototype, "venueId", void 0);
 //# sourceMappingURL=create-task.dto.js.map

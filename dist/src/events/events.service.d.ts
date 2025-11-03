@@ -13,43 +13,43 @@ export declare class EventsService {
         id: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
     }>;
     get(eventId: string, viewer: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }>;
     listForUser(viewer: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }[]>;
     update(eventId: string, dto: UpdateEventDto, actor: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }>;
     remove(eventId: string, actor: {
@@ -63,20 +63,20 @@ export declare class EventsService {
         isSuperAdmin: boolean;
     }): Promise<{
         id: string;
-        eventId: string;
         userId: string;
         role: import("@prisma/client").$Enums.EventRole;
         departmentId: string | null;
+        eventId: string;
     }>;
     updateMember(eventId: string, userId: string, dto: UpdateMemberDto, actor: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
         id: string;
-        eventId: string;
         userId: string;
         role: import("@prisma/client").$Enums.EventRole;
         departmentId: string | null;
+        eventId: string;
     }>;
     removeMember(eventId: string, userId: string, actor: {
         userId: string;
@@ -89,8 +89,8 @@ export declare class EventsService {
         isSuperAdmin: boolean;
     }): Promise<{
         user: {
-            id: string;
             email: string;
+            id: string;
             fullName: string;
             itsId: string | null;
             profileImage: string | null;

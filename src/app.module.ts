@@ -9,10 +9,12 @@ import { TasksModule } from './tasks/tasks.module';
 import { IssuesModule } from './issues/issues.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { ChatModule } from './chat/chat.module';
+import { MediaModule } from './media/media.module';
+import { VenuesModule } from './venues/venues.module';
 
 @Module({
   imports: [AuthModule,
-    UsersModule, EventsModule,DepartmentsModule,TasksModule, IssuesModule,AttachmentsModule, ChatModule],
+    UsersModule, EventsModule,DepartmentsModule,TasksModule, IssuesModule,AttachmentsModule, ChatModule, MediaModule, VenuesModule],
   controllers: [AppController],
   providers: [AppService],
 })

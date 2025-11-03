@@ -7,34 +7,34 @@ export declare class EventsController {
     private readonly events;
     constructor(events: EventsService);
     createEvent(user: any, dto: CreateEventDto): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
     }>;
     listEvents(user: any): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }[]>;
     getEvent(eventId: string, user: any): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }>;
     updateEvent(eventId: string, dto: UpdateEventDto, user: any): Promise<{
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
         startsAt: Date | null;
         endsAt: Date | null;
-        createdAt: Date;
         archivedAt: Date | null;
     }>;
     deleteEvent(eventId: string, user: any): Promise<{
@@ -42,8 +42,8 @@ export declare class EventsController {
     }>;
     listMembers(eventId: string, user: any): Promise<{
         user: {
-            id: string;
             email: string;
+            id: string;
             fullName: string;
             itsId: string | null;
             profileImage: string | null;
@@ -57,17 +57,17 @@ export declare class EventsController {
     }[]>;
     addMember(eventId: string, dto: AddMemberDto, user: any): Promise<{
         id: string;
-        eventId: string;
         userId: string;
         role: import("@prisma/client").$Enums.EventRole;
         departmentId: string | null;
+        eventId: string;
     }>;
     updateMember(eventId: string, userId: string, dto: UpdateMemberDto, user: any): Promise<{
         id: string;
-        eventId: string;
         userId: string;
         role: import("@prisma/client").$Enums.EventRole;
         departmentId: string | null;
+        eventId: string;
     }>;
     removeMember(eventId: string, userId: string, user: any): Promise<{
         ok: boolean;

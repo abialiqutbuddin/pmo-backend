@@ -52,6 +52,14 @@ enum TaskStatus {
   canceled
 }
 
+// Kind of task for categorization and reporting
+enum TaskType {
+  issue
+  new_task
+  taujeeh
+  improvement
+}
+
 enum DependencyType {
   finish_to_start
   start_to_start
@@ -191,6 +199,7 @@ model Event {
   NotificationPref NotificationPref[]
   Notification Notification[]
   AttachmentLink AttachmentLink[]
+  Venue Venue[]
 }
 
 model Department {
@@ -414,6 +423,8 @@ model Task {
   departmentId String
   creatorId    String
   assigneeId   String?
+  venueId      String?
+  type         TaskType    @default(new_task)
   title        String
   description  String?
   priority     Int          @default(3) // lower = higher priority, configurable
@@ -430,6 +441,7 @@ model Task {
   department   Department   @relation(fields: [departmentId], references: [id])
   creator      User         @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  venue        Venue?       @relation(fields: [venueId], references: [id])
 
   //attachments  TaskAttachment[]
   blockers     TaskDependency[] @relation("Blockers")
@@ -442,9 +454,23 @@ model Task {
   @@index([eventId, departmentId])
   @@index([status, dueAt])
   @@index([assigneeId, status])
+  @@index([venueId])
   @@index([sourceIssueId])
   InterDeptRequest InterDeptRequest[]
   //Issue Issue[] @relation("IssueTasks")
+}
+
+model Venue {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  tasks     Task[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
 }
 
 // model TaskAttachment {

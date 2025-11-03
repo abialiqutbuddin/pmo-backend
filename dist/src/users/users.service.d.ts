@@ -14,6 +14,11 @@ export declare class UsersService {
         createdAt: Date;
         isDisabled: boolean;
         isSuperAdmin: boolean;
+        itsId: string | null;
+        profileImage: string | null;
+        organization: string | null;
+        designation: string | null;
+        phoneNumber: string | null;
     }>;
     list(actor: {
         isSuperAdmin: boolean;

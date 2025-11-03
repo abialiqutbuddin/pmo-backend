@@ -15,9 +15,11 @@ class UpdateTaskDto {
     title;
     description;
     priority;
+    type;
     startAt;
     dueAt;
     assigneeId;
+    venueId;
 }
 exports.UpdateTaskDto = UpdateTaskDto;
 __decorate([
@@ -39,6 +41,11 @@ __decorate([
 ], UpdateTaskDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['issue', 'new_task', 'taujeeh', 'improvement']),
+    __metadata("design:type", Object)
+], UpdateTaskDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsISO8601)(),
     __metadata("design:type", Object)
 ], UpdateTaskDto.prototype, "startAt", void 0);
@@ -52,4 +59,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], UpdateTaskDto.prototype, "assigneeId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", Object)
+], UpdateTaskDto.prototype, "venueId", void 0);
 //# sourceMappingURL=update-task.dto.js.map

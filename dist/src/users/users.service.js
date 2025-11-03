@@ -66,7 +66,19 @@ let UsersService = class UsersService {
                 isDisabled: actor.isSuperAdmin ? !!dto.isDisabled : false,
                 isSuperAdmin: actor.isSuperAdmin ? !!dto.isSuperAdmin : false,
             },
-            select: { id: true, email: true, fullName: true, isDisabled: true, isSuperAdmin: true, createdAt: true },
+            select: {
+                id: true,
+                email: true,
+                fullName: true,
+                isDisabled: true,
+                isSuperAdmin: true,
+                createdAt: true,
+                itsId: true,
+                profileImage: true,
+                organization: true,
+                designation: true,
+                phoneNumber: true,
+            },
         });
     }
     async list(actor) {

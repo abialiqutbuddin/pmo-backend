@@ -7,26 +7,28 @@ import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
 export declare class TasksController {
     private readonly tasks;
     constructor(tasks: TasksService);
-    list(eventId: string, departmentId: string, user: any, cursor?: string, take?: string): Promise<{
+    list(eventId: string, departmentId: string, user: any, cursor?: string, take?: string, assigneeId?: string): Promise<{
         id: string;
         createdAt: Date;
+        creatorId: string;
+        assigneeId: string | null;
+        venueId: string | null;
+        type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
         priority: number;
-        startAt: Date | null;
-        dueAt: Date | null;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         progressPct: number;
-        creatorId: string;
+        startAt: Date | null;
+        dueAt: Date | null;
         updatedAt: Date;
     }[]>;
     create(eventId: string, departmentId: string, user: any, dto: CreateTaskDto): Promise<{
         id: string;
         createdAt: Date;
+        assigneeId: string | null;
         title: string;
         priority: number;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
     }>;
     get(eventId: string, departmentId: string, taskId: string, user: any): Promise<{
@@ -34,15 +36,17 @@ export declare class TasksController {
         createdAt: Date;
         departmentId: string;
         eventId: string;
+        creatorId: string;
+        assigneeId: string | null;
+        venueId: string | null;
+        type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
         priority: number;
-        startAt: Date | null;
-        dueAt: Date | null;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         progressPct: number;
-        creatorId: string;
+        startAt: Date | null;
+        dueAt: Date | null;
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
@@ -50,9 +54,9 @@ export declare class TasksController {
     }>;
     update(eventId: string, departmentId: string, taskId: string, user: any, dto: UpdateTaskDto): Promise<{
         id: string;
+        assigneeId: string | null;
         title: string;
         priority: number;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         updatedAt: Date;
     }>;
@@ -74,8 +78,8 @@ export declare class TasksController {
                 id: string;
                 title: string;
                 priority: number;
-                dueAt: Date | null;
                 status: import("@prisma/client").$Enums.TaskStatus;
+                dueAt: Date | null;
             };
         }[];
         dependents: {
@@ -85,8 +89,8 @@ export declare class TasksController {
                 id: string;
                 title: string;
                 priority: number;
-                dueAt: Date | null;
                 status: import("@prisma/client").$Enums.TaskStatus;
+                dueAt: Date | null;
             };
         }[];
     }>;

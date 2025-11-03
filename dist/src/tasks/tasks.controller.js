@@ -28,8 +28,8 @@ let TasksController = class TasksController {
     constructor(tasks) {
         this.tasks = tasks;
     }
-    list(eventId, departmentId, user, cursor, take) {
-        return this.tasks.list(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, { cursor, take: take ? Number(take) : undefined });
+    list(eventId, departmentId, user, cursor, take, assigneeId) {
+        return this.tasks.list(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined });
     }
     create(eventId, departmentId, user, dto) {
         return this.tasks.create(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
@@ -64,8 +64,9 @@ __decorate([
     __param(2, (0, current_user_decorator_1.CurrentUser)()),
     __param(3, (0, common_1.Query)('cursor')),
     __param(4, (0, common_1.Query)('take')),
+    __param(5, (0, common_1.Query)('assigneeId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object, String, String]),
+    __metadata("design:paramtypes", [String, String, Object, String, String, String]),
     __metadata("design:returntype", void 0)
 ], TasksController.prototype, "list", null);
 __decorate([

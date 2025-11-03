@@ -59,6 +59,7 @@ let ChatGateway = ChatGateway_1 = class ChatGateway {
             client.data.user = user;
             client.data.eventId = eventId;
             client.join(`event:${eventId}`);
+            client.join(`user:${user.id}`);
             this.logger.log(`client ${user.id} connected to event ${eventId}`);
         }
         catch {
@@ -71,7 +72,21 @@ let ChatGateway = ChatGateway_1 = class ChatGateway {
             this.logger.log(`client ${user.id} disconnected from event ${eventId}`);
     }
     async onJoin(data, client) {
-        client.join(`conv:${data.conversationId}`);
+        try {
+            const user = client.data.user;
+            const p = await this.prisma.participant.findFirst({ where: { conversationId: data.conversationId, userId: user.id } });
+            if (!p) {
+                client.emit('conversation.join-denied', { conversationId: data.conversationId });
+                return;
+            }
+            client.join(`conv:${data.conversationId}`);
+        }
+        catch (e) {
+            try {
+                client.emit('conversation.join-denied', { conversationId: data.conversationId });
+            }
+            catch { }
+        }
     }
     async onLeave(data, client) {
         client.leave(`conv:${data.conversationId}`);
@@ -79,8 +94,29 @@ let ChatGateway = ChatGateway_1 = class ChatGateway {
     async onMessage(body, client) {
         const user = client.data.user;
         const msg = await this.chat.sendMessage({ ...body }, user);
-        this.server.to(`conv:${body.conversationId}`).emit('message.new', msg);
-        return msg;
+        const payload = { ...msg, isSystem: false };
+        this.server.to(`conv:${body.conversationId}`).emit('message.new', payload);
+        return payload;
+    }
+    async kickFromConversation(conversationId, userId) {
+        try {
+            const room = `conv:${conversationId}`;
+            const sockets = await this.server.in(room).fetchSockets();
+            for (const s of sockets) {
+                const u = s.data?.user?.id;
+                if (u === userId) {
+                    try {
+                        s.leave(room);
+                    }
+                    catch { }
+                    try {
+                        s.emit('conversation.kicked', { conversationId });
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
     }
     async onAttachmentUploaded(body, client) {
         try {

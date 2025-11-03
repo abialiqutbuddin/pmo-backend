@@ -18,13 +18,15 @@ const tasks_module_1 = require("./tasks/tasks.module");
 const issues_module_1 = require("./issues/issues.module");
 const attachments_module_1 = require("./attachments/attachments.module");
 const chat_module_1 = require("./chat/chat.module");
+const media_module_1 = require("./media/media.module");
+const venues_module_1 = require("./venues/venues.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [auth_module_1.AuthModule,
-            users_module_1.UsersModule, events_module_1.EventsModule, departments_module_1.DepartmentsModule, tasks_module_1.TasksModule, issues_module_1.IssuesModule, attachments_module_1.AttachmentsModule, chat_module_1.ChatModule],
+            users_module_1.UsersModule, events_module_1.EventsModule, departments_module_1.DepartmentsModule, tasks_module_1.TasksModule, issues_module_1.IssuesModule, attachments_module_1.AttachmentsModule, chat_module_1.ChatModule, media_module_1.MediaModule, venues_module_1.VenuesModule],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
     })

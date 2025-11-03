@@ -37,18 +37,36 @@ let TasksService = class TasksService {
         return { role: topRole, sameDept };
     }
     async list(eventId, departmentId, actor, opts = {}) {
-        await this.getActorRole(eventId, departmentId, actor);
-        const take = Math.min(Math.max((opts.take ?? 20), 1), 100);
+        const { role } = await this.getActorRole(eventId, departmentId, actor);
+        const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
         const where = { eventId, departmentId, deletedAt: null };
+        if (role === 'SUPER' || rules_1.ADMIN_ROLES.has(role) || role === client_1.EventRole.DEPT_HEAD) {
+            if (opts.assigneeId)
+                where.assigneeId = opts.assigneeId;
+        }
+        else if (role === client_1.EventRole.DEPT_MEMBER) {
+            where.assigneeId = actor.userId;
+        }
         const tasks = await this.prisma.task.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             take,
             ...(opts.cursor ? { skip: 1, cursor: { id: opts.cursor } } : {}),
             select: {
-                id: true, title: true, description: true, priority: true, status: true,
-                progressPct: true, startAt: true, dueAt: true, createdAt: true, updatedAt: true,
-                assigneeId: true, creatorId: true,
+                id: true,
+                title: true,
+                description: true,
+                priority: true,
+                status: true,
+                progressPct: true,
+                type: true,
+                startAt: true,
+                dueAt: true,
+                createdAt: true,
+                updatedAt: true,
+                assigneeId: true,
+                creatorId: true,
+                venueId: true,
             },
         });
         return tasks;
@@ -68,9 +86,11 @@ let TasksService = class TasksService {
             title: dto.title,
             description: dto.description,
             priority: dto.priority ?? 3,
+            type: dto.type ?? undefined,
             startAt: dto.startAt ? new Date(dto.startAt) : undefined,
             dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
             assigneeId: dto.assigneeId,
+            venueId: dto.venueId,
         };
         return this.prisma.task.create({
             data,
@@ -78,12 +98,19 @@ let TasksService = class TasksService {
         });
     }
     async get(eventId, departmentId, taskId, actor) {
-        await this.getActorRole(eventId, departmentId, actor);
+        const { role } = await this.getActorRole(eventId, departmentId, actor);
         const task = await this.prisma.task.findFirst({
             where: { id: taskId, eventId, departmentId, deletedAt: null },
         });
         if (!task)
             throw new common_1.NotFoundException();
+        if (!(role === 'SUPER' || rules_1.ADMIN_ROLES.has(role) || role === client_1.EventRole.DEPT_HEAD)) {
+            if (role === client_1.EventRole.DEPT_MEMBER) {
+                if (task.assigneeId !== actor.userId && task.creatorId !== actor.userId) {
+                    throw new common_1.ForbiddenException('Cannot view this task');
+                }
+            }
+        }
         return task;
     }
     async update(eventId, departmentId, taskId, actor, dto) {
@@ -98,9 +125,11 @@ let TasksService = class TasksService {
             title: dto.title,
             description: dto.description,
             priority: dto.priority,
+            type: dto.type === null ? null : dto.type ?? undefined,
             startAt: dto.startAt === null ? null : dto.startAt ? new Date(dto.startAt) : undefined,
             dueAt: dto.dueAt === null ? null : dto.dueAt ? new Date(dto.dueAt) : undefined,
             assigneeId: dto.assigneeId === null ? null : dto.assigneeId ?? undefined,
+            venueId: dto.venueId === null ? null : dto.venueId ?? undefined,
         };
         return this.prisma.task.update({
             where: { id: task.id },

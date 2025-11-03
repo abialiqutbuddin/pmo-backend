@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, Query, Delete } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -9,11 +9,12 @@ import { MarkReadDto } from './dto/mark-read.dto';
 import { CreateTaskFromMessageDto } from './dto/create-task-from-message.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddParticipantDto } from './dto/add-participant.dto';
+import { ChatGateway } from './chat.gateway';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chat: ChatService, private readonly prisma: PrismaService) {}
+  constructor(private readonly chat: ChatService, private readonly prisma: PrismaService, private readonly gateway: ChatGateway) {}
 
   @Post('conversations')
   createConv(@CurrentUser() user: any, @Body() dto: CreateConversationDto) {
@@ -72,7 +73,48 @@ export class ChatController {
   @Post('conversations/:conversationId/participants')
   addParticipants(@Param('conversationId') conversationId: string, @Body() dto: AddParticipantDto, @CurrentUser() user: any) {
     const ids = dto.userIds || [];
-    return this.chat.addParticipants(conversationId, ids, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.chat.addParticipants(conversationId, ids, { id: user.sub, isSuperAdmin: user.isSuperAdmin }).then(async (res) => {
+      if ((res as any)?.messageId) {
+        const msg = await this.prisma.message.findUnique({ where: { id: (res as any).messageId }, select: { id: true, conversationId: true, authorId: true, body: true, parentId: true, createdAt: true, author: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true } } } });
+        if (msg) this.gateway.server.to(`conv:${conversationId}`).emit('message.new', { ...msg, isSystem: true });
+      }
+      // notify clients to refresh participants
+      this.gateway.server.to(`conv:${conversationId}`).emit('participants.updated', { conversationId });
+      // Send a targeted invitation event to each newly added user so their chat list updates instantly
+      try {
+        const conv = await this.prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: {
+            id: true,
+            kind: true,
+            title: true,
+            departmentId: true,
+            issueId: true,
+            updatedAt: true,
+            participants: { select: { userId: true, lastReadAt: true, user: { select: { id: true, fullName: true, email: true } } } },
+            messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, authorId: true, body: true, createdAt: true, author: { select: { id: true, fullName: true, email: true } } } },
+          },
+        });
+        if (conv) {
+          const payload: any = {
+            id: conv.id,
+            kind: conv.kind,
+            title: conv.title,
+            departmentId: conv.departmentId,
+            issueId: conv.issueId,
+            updatedAt: conv.updatedAt,
+            participants: conv.participants,
+            lastMessage: conv.messages && conv.messages[0] ? conv.messages[0] : null,
+            unreadCount: 0,
+            lastMessageAllRead: false,
+          };
+          for (const uid of ids) {
+            this.gateway.server.to(`user:${uid}`).emit('conversation.invited', payload);
+          }
+        }
+      } catch {}
+      return res;
+    });
   }
 
   @Get('conversations/:conversationId/messages')
@@ -85,5 +127,30 @@ export class ChatController {
     const n = Math.max(1, Math.min(200, parseInt(limit || '50', 10)));
     const b = before && before !== 'null' && before !== 'undefined' ? before : undefined;
     return this.chat.listMessages(conversationId, { id: user.sub, isSuperAdmin: user.isSuperAdmin }, n, b);
+  }
+
+  @Get('messages/:messageId/readers')
+  readers(@Param('messageId') messageId: string, @CurrentUser() user: any) {
+    return this.chat.messageReaders(messageId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+  }
+
+  @Delete('conversations/:conversationId/participants/:userId')
+  async removeParticipant(@Param('conversationId') conversationId: string, @Param('userId') userId: string, @CurrentUser() user: any) {
+    const res = await this.chat.removeParticipant(conversationId, userId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    if ((res as any)?.messageId) {
+      const msg = await this.prisma.message.findUnique({ where: { id: (res as any).messageId }, select: { id: true, conversationId: true, authorId: true, body: true, parentId: true, createdAt: true, author: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true } } } });
+      if (msg) this.gateway.server.to(`conv:${conversationId}`).emit('message.new', { ...msg, isSystem: true });
+    }
+    this.gateway.server.to(`conv:${conversationId}`).emit('participants.updated', { conversationId });
+    // Force removed user's sockets to leave the conversation room
+    await this.gateway.kickFromConversation(conversationId, userId);
+    return res;
+  }
+
+  @Patch('conversations/:conversationId/participants/:userId')
+  async updateParticipant(@Param('conversationId') conversationId: string, @Param('userId') userId: string, @Body() body: { role?: string }, @CurrentUser() user: any) {
+    const r = await this.chat.updateParticipantRole(conversationId, userId, body?.role, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    this.gateway.server.to(`conv:${conversationId}`).emit('participants.updated', { conversationId });
+    return r;
   }
 }

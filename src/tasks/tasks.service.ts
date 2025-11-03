@@ -32,21 +32,47 @@ export class TasksService {
   }
 
   /* ---------- List (with pagination) ---------- */
-  async list(eventId: string, departmentId: string, actor: Actor, opts: { cursor?: string; take?: number } = {}) {
-    // must be at least a member of the event
-    await this.getActorRole(eventId, departmentId, actor);
+  async list(
+    eventId: string,
+    departmentId: string,
+    actor: Actor,
+    opts: { cursor?: string; take?: number; assigneeId?: string } = {},
+  ) {
+    // must be at least a member of the event; also figure out role
+    const { role } = await this.getActorRole(eventId, departmentId, actor);
 
-    const take = Math.min(Math.max((opts.take ?? 20), 1), 100);
-    const where = { eventId, departmentId, deletedAt: null as Date | null };
+    const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
+    const where: any = { eventId, departmentId, deletedAt: null as Date | null };
+
+    // Enforce visibility rules:
+    // - SUPER/ADMIN/DEPT_HEAD can see all; if assigneeId provided, filter by it
+    // - DEPT_MEMBER only sees tasks assigned to themselves
+    if (role === 'SUPER' || ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD) {
+      if (opts.assigneeId) where.assigneeId = opts.assigneeId;
+    } else if ((role as EventRole) === EventRole.DEPT_MEMBER) {
+      where.assigneeId = actor.userId;
+    }
+
     const tasks = await this.prisma.task.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take,
       ...(opts.cursor ? { skip: 1, cursor: { id: opts.cursor } } : {}),
       select: {
-        id: true, title: true, description: true, priority: true, status: true,
-        progressPct: true, startAt: true, dueAt: true, createdAt: true, updatedAt: true,
-        assigneeId: true, creatorId: true,
+        id: true,
+        title: true,
+        description: true,
+        priority: true,
+        status: true,
+        progressPct: true,
+        type: true,
+        startAt: true,
+        dueAt: true,
+        createdAt: true,
+        updatedAt: true,
+        assigneeId: true,
+        creatorId: true,
+        venueId: true,
       },
     });
     return tasks;
@@ -69,9 +95,11 @@ export class TasksService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority ?? 3,
+      type: (dto as any).type ?? undefined,
       startAt: dto.startAt ? new Date(dto.startAt) : undefined,
       dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
       assigneeId: dto.assigneeId,
+      venueId: dto.venueId,
     };
     return this.prisma.task.create({
       data,
@@ -81,11 +109,19 @@ export class TasksService {
 
   /* ---------- Get ---------- */
   async get(eventId: string, departmentId: string, taskId: string, actor: Actor) {
-    await this.getActorRole(eventId, departmentId, actor);
+    const { role } = await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, eventId, departmentId, deletedAt: null },
     });
     if (!task) throw new NotFoundException();
+    // Visibility for single task: members can only view their assigned or created tasks
+    if (!(role === 'SUPER' || ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD)) {
+      if ((role as EventRole) === EventRole.DEPT_MEMBER) {
+        if (task.assigneeId !== actor.userId && task.creatorId !== actor.userId) {
+          throw new ForbiddenException('Cannot view this task');
+        }
+      }
+    }
     return task;
   }
 
@@ -103,9 +139,11 @@ export class TasksService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
+      type: dto.type === null ? null : dto.type ?? undefined,
       startAt: dto.startAt === null ? null : dto.startAt ? new Date(dto.startAt) : undefined,
       dueAt: dto.dueAt === null ? null : dto.dueAt ? new Date(dto.dueAt) : undefined,
       assigneeId: dto.assigneeId === null ? null : dto.assigneeId ?? undefined,
+      venueId: dto.venueId === null ? null : dto.venueId ?? undefined,
     };
 
     return this.prisma.task.update({

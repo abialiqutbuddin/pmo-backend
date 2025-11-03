@@ -11,6 +11,11 @@ export declare class UsersController {
         createdAt: Date;
         isDisabled: boolean;
         isSuperAdmin: boolean;
+        itsId: string | null;
+        profileImage: string | null;
+        organization: string | null;
+        designation: string | null;
+        phoneNumber: string | null;
     }>;
     list(user: any): Promise<{
         email: string;

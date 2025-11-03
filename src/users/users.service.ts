@@ -25,7 +25,19 @@ export class UsersService {
         // only super-admin can create super-admins
         isSuperAdmin: actor.isSuperAdmin ? !!dto.isSuperAdmin : false,
       },
-      select: { id: true, email: true, fullName: true, isDisabled: true, isSuperAdmin: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        isDisabled: true,
+        isSuperAdmin: true,
+        createdAt: true,
+        itsId: true,
+        profileImage: true,
+        organization: true,
+        designation: true,
+        phoneNumber: true,
+      },
     });
   }
 

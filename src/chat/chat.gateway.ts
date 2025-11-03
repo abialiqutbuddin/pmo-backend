@@ -33,6 +33,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       (client.data as any).user = user;
       (client.data as any).eventId = eventId;
       client.join(`event:${eventId}`);
+      // Also join a per-user room for targeted notifications (e.g., conversation.invited)
+      client.join(`user:${user.id}`);
       this.logger.log(`client ${user.id} connected to event ${eventId}`);
     } catch {
       client.disconnect(true);
@@ -46,7 +48,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('conversation.join')
   async onJoin(@MessageBody() data: { conversationId: string }, @ConnectedSocket() client: Socket) {
-    client.join(`conv:${data.conversationId}`);
+    try {
+      const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
+      // Verify that the user is still a participant of this conversation before joining the room
+      const p = await this.prisma.participant.findFirst({ where: { conversationId: data.conversationId, userId: user.id } });
+      if (!p) {
+        // notify client that join was denied
+        client.emit('conversation.join-denied', { conversationId: data.conversationId });
+        return;
+      }
+      client.join(`conv:${data.conversationId}`);
+    } catch (e) {
+      // swallow errors to avoid crashing socket handler
+      try { client.emit('conversation.join-denied', { conversationId: data.conversationId }); } catch {}
+    }
   }
 
   @SubscribeMessage('conversation.leave')
@@ -58,8 +73,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async onMessage(@MessageBody() body: { conversationId: string; body?: string; parentId?: string }, @ConnectedSocket() client: Socket) {
     const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
     const msg = await this.chat.sendMessage({ ...body }, user);
-    this.server.to(`conv:${body.conversationId}`).emit('message.new', msg);
-    return msg;
+    const payload = { ...msg, isSystem: false } as any;
+    this.server.to(`conv:${body.conversationId}`).emit('message.new', payload);
+    return payload;
+  }
+
+  // Kick a given user from a conversation room (server-side leave) and notify the user
+  async kickFromConversation(conversationId: string, userId: string) {
+    try {
+      const room = `conv:${conversationId}`;
+      const sockets = await this.server.in(room).fetchSockets();
+      for (const s of sockets) {
+        const u = (s.data as any)?.user?.id;
+        if (u === userId) {
+          try { s.leave(room); } catch {}
+          try { s.emit('conversation.kicked', { conversationId }); } catch {}
+        }
+      }
+    } catch {}
   }
 
   @SubscribeMessage('attachment.uploaded')

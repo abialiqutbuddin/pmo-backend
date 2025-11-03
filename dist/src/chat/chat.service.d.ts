@@ -12,34 +12,34 @@ export declare class ChatService {
         isSuperAdmin: boolean;
     }): Promise<{
         id: string;
-        kind: import("@prisma/client").$Enums.ConversationKind;
-        title: string | null;
         createdAt: Date;
-        eventId: string;
         departmentId: string | null;
+        eventId: string;
+        title: string | null;
         issueId: string | null;
+        kind: import("@prisma/client").$Enums.ConversationKind;
     }>;
     listConversations(eventId: string, actor: {
         id: string;
         isSuperAdmin: boolean;
-    }): Promise<{
-        id: string;
-        kind: import("@prisma/client").$Enums.ConversationKind;
-        title: string | null;
-        updatedAt: Date;
-        departmentId: string | null;
-        issueId: string | null;
-    }[]>;
+    }): Promise<any[]>;
     sendMessage(dto: SendMessageDto, actor: {
         id: string;
         isSuperAdmin: boolean;
     }): Promise<{
         id: string;
         createdAt: Date;
-        body: string | null;
         conversationId: string;
-        authorId: string;
+        body: string | null;
         parentId: string | null;
+        authorId: string;
+        author: {
+            email: string;
+            id: string;
+            fullName: string;
+            itsId: string | null;
+            profileImage: string | null;
+        };
     }>;
     addReaction(dto: ReactDto, actor: {
         id: string;
@@ -64,30 +64,51 @@ export declare class ChatService {
         isSuperAdmin: boolean;
     }): Promise<{
         added: number;
+        messageId?: undefined;
+    } | {
+        added: number;
+        messageId: string;
+    }>;
+    removeParticipant(conversationId: string, userId: string, actor: {
+        id: string;
+        isSuperAdmin: boolean;
+    }): Promise<{
+        ok: boolean;
+        messageId?: undefined;
+    } | {
+        ok: boolean;
+        messageId: string;
+    }>;
+    updateParticipantRole(conversationId: string, userId: string, role: string | undefined, actor: {
+        id: string;
+        isSuperAdmin: boolean;
+    }): Promise<{
+        ok: boolean;
     }>;
     listParticipants(conversationId: string, actor: {
         id: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        role: string;
         user: {
-            id: string;
             email: string;
+            id: string;
             fullName: string;
             itsId: string | null;
             profileImage: string | null;
         };
         userId: string;
+        role: string;
+        lastReadAt: Date | null;
     }[]>;
     getOrCreateDirect(eventId: string, otherUserId: string, actor: {
         id: string;
         isSuperAdmin: boolean;
     }): Promise<{
         id: string;
-        kind: import("@prisma/client").$Enums.ConversationKind;
+        eventId: string;
         title: string | null;
         updatedAt: Date;
-        eventId: string;
+        kind: import("@prisma/client").$Enums.ConversationKind;
     }>;
     listMessages(conversationId: string, actor: {
         id: string;
@@ -101,13 +122,32 @@ export declare class ChatService {
                 size: number;
                 objectKey: string | null;
             }[];
+            isSystem: boolean;
             id: string;
             createdAt: Date;
-            body: string | null;
             conversationId: string;
-            authorId: string;
+            body: string | null;
             parentId: string | null;
+            authorId: string;
+            author: {
+                email: string;
+                id: string;
+                fullName: string;
+                itsId: string | null;
+                profileImage: string | null;
+            };
         }[];
         nextCursor: string | null;
     }>;
+    messageReaders(messageId: string, actor: {
+        id: string;
+        isSuperAdmin: boolean;
+    }): Promise<{
+        userId: string;
+        fullName: string;
+        email: string;
+        itsId: string | null;
+        profileImage: string | null;
+        readAt: Date | null;
+    }[]>;
 }

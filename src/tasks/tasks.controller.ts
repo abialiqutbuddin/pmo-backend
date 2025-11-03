@@ -21,8 +21,14 @@ export class TasksController {
     @CurrentUser() user: any,
     @Query('cursor') cursor?: string,
     @Query('take') take?: string,
+    @Query('assigneeId') assigneeId?: string,
   ) {
-    return this.tasks.list(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, { cursor, take: take ? Number(take) : undefined });
+    return this.tasks.list(
+      eventId,
+      departmentId,
+      { userId: user.sub, isSuperAdmin: user.isSuperAdmin },
+      { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined },
+    );
   }
 
   @Post()

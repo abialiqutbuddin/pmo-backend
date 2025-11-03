@@ -15,26 +15,29 @@ export declare class TasksService {
     list(eventId: string, departmentId: string, actor: Actor, opts?: {
         cursor?: string;
         take?: number;
+        assigneeId?: string;
     }): Promise<{
         id: string;
         createdAt: Date;
+        creatorId: string;
+        assigneeId: string | null;
+        venueId: string | null;
+        type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
         priority: number;
-        startAt: Date | null;
-        dueAt: Date | null;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         progressPct: number;
-        creatorId: string;
+        startAt: Date | null;
+        dueAt: Date | null;
         updatedAt: Date;
     }[]>;
     create(eventId: string, departmentId: string, actor: Actor, dto: CreateTaskDto): Promise<{
         id: string;
         createdAt: Date;
+        assigneeId: string | null;
         title: string;
         priority: number;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
     }>;
     get(eventId: string, departmentId: string, taskId: string, actor: Actor): Promise<{
@@ -42,15 +45,17 @@ export declare class TasksService {
         createdAt: Date;
         departmentId: string;
         eventId: string;
+        creatorId: string;
+        assigneeId: string | null;
+        venueId: string | null;
+        type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
         priority: number;
-        startAt: Date | null;
-        dueAt: Date | null;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         progressPct: number;
-        creatorId: string;
+        startAt: Date | null;
+        dueAt: Date | null;
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
@@ -58,9 +63,9 @@ export declare class TasksService {
     }>;
     update(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: UpdateTaskDto): Promise<{
         id: string;
+        assigneeId: string | null;
         title: string;
         priority: number;
-        assigneeId: string | null;
         status: import("@prisma/client").$Enums.TaskStatus;
         updatedAt: Date;
     }>;
@@ -82,8 +87,8 @@ export declare class TasksService {
                 id: string;
                 title: string;
                 priority: number;
-                dueAt: Date | null;
                 status: import("@prisma/client").$Enums.TaskStatus;
+                dueAt: Date | null;
             };
         }[];
         dependents: {
@@ -93,8 +98,8 @@ export declare class TasksService {
                 id: string;
                 title: string;
                 priority: number;
-                dueAt: Date | null;
                 status: import("@prisma/client").$Enums.TaskStatus;
+                dueAt: Date | null;
             };
         }[];
     }>;
