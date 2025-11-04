@@ -18,7 +18,6 @@ export declare class ChatController {
         departmentId: string | null;
         eventId: string;
         title: string | null;
-        issueId: string | null;
         kind: import("@prisma/client").$Enums.ConversationKind;
     }>;
     list(eventId: string, user: any): Promise<any[]>;

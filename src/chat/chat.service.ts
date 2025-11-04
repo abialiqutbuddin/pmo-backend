@@ -23,7 +23,6 @@ export class ChatService {
         kind: dto.kind,
         title: dto.title,
         departmentId: dto.departmentId,
-        issueId: dto.issueId,
         participants: {
           create: [
             { userId: actor.id, role: 'OWNER' },
@@ -31,7 +30,7 @@ export class ChatService {
           ],
         },
       },
-      select: { id: true, eventId: true, kind: true, title: true, departmentId: true, issueId: true, createdAt: true },
+      select: { id: true, eventId: true, kind: true, title: true, departmentId: true, createdAt: true },
     });
     return conv;
   }
@@ -45,7 +44,7 @@ export class ChatService {
         kind: true,
         title: true,
         departmentId: true,
-        issueId: true,
+        // issueId removed
         updatedAt: true,
         participants: { select: { userId: true, lastReadAt: true, user: { select: { id: true, fullName: true, email: true } } } },
         messages: {
@@ -82,7 +81,7 @@ export class ChatService {
         kind: r.kind,
         title: r.title,
         departmentId: r.departmentId,
-        issueId: r.issueId,
+        // issueId removed
         updatedAt: r.updatedAt,
         lastMessage: r.messages && r.messages[0]
           ? {

@@ -16,7 +16,6 @@ export declare class ChatService {
         departmentId: string | null;
         eventId: string;
         title: string | null;
-        issueId: string | null;
         kind: import("@prisma/client").$Enums.ConversationKind;
     }>;
     listConversations(eventId: string, actor: {

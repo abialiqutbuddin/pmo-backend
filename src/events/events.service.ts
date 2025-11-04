@@ -108,7 +108,7 @@ export class EventsService {
         }
         const e = await this.prisma.event.findUnique({
             where: { id: eventId },
-            select: { id: true, name: true, startsAt: true, endsAt: true, createdAt: true, archivedAt: true },
+            select: { id: true, name: true, startsAt: true, endsAt: true, createdAt: true, archivedAt: true, zonesEnabled: true },
         });
         if (!e) throw new NotFoundException();
         return e;
@@ -236,17 +236,21 @@ export class EventsService {
             const m = await this.prisma.eventMembership.findFirst({ where: { eventId, userId: viewer.userId } });
             if (!m) throw new NotFoundException();
         }
-        return this.prisma.eventMembership.findMany({
+        const rows = await this.prisma.eventMembership.findMany({
             where: { eventId },
             select: {
-                id: true,
                 userId: true,
-                role: true,
-                departmentId: true,
-                createdAt: true,
                 user: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true, designation: true } },
+                createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
         });
+        // Deduplicate per userId so consumers don't see multiple entries for multiple roles/departments
+        const byUser = new Map<string, { userId: string; user: any }>();
+        for (const r of rows) {
+            if (!byUser.has(r.userId)) byUser.set(r.userId, { userId: r.userId, user: r.user });
+        }
+        // Sort by user fullName for nicer UX
+        return Array.from(byUser.values()).sort((a, b) => (a.user?.fullName || '').localeCompare(b.user?.fullName || ''));
     }
 }

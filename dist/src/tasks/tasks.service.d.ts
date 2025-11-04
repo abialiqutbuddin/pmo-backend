@@ -16,12 +16,16 @@ export declare class TasksService {
         cursor?: string;
         take?: number;
         assigneeId?: string;
+        zoneId?: string;
+        zonalDeptRowId?: string;
     }): Promise<{
         id: string;
         createdAt: Date;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
+        zoneId: string | null;
+        zonalDeptRowId: string | null;
         type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
@@ -48,6 +52,8 @@ export declare class TasksService {
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
+        zoneId: string | null;
+        zonalDeptRowId: string | null;
         type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
@@ -59,7 +65,6 @@ export declare class TasksService {
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
-        sourceIssueId: string | null;
     }>;
     update(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: UpdateTaskDto): Promise<{
         id: string;

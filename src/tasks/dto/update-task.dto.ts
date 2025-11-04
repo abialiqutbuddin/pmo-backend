@@ -9,4 +9,7 @@ export class UpdateTaskDto {
   @IsOptional() @IsISO8601() dueAt?: string | null;
   @IsOptional() @IsString() assigneeId?: string | null;
   @IsOptional() @IsString() venueId?: string | null;
+  @IsOptional() @IsString() zoneId?: string | null;
+  // When set, must be a ZoneZonalDepartment.id; null to clear
+  @IsOptional() @IsString() zonalDeptRowId?: string | null;
 }

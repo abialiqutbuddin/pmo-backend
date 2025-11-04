@@ -89,7 +89,7 @@ export class ChatController {
             kind: true,
             title: true,
             departmentId: true,
-            issueId: true,
+            // issueId removed
             updatedAt: true,
             participants: { select: { userId: true, lastReadAt: true, user: { select: { id: true, fullName: true, email: true } } } },
             messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, authorId: true, body: true, createdAt: true, author: { select: { id: true, fullName: true, email: true } } } },
@@ -101,7 +101,7 @@ export class ChatController {
             kind: conv.kind,
             title: conv.title,
             departmentId: conv.departmentId,
-            issueId: conv.issueId,
+            // issueId removed
             updatedAt: conv.updatedAt,
             participants: conv.participants,
             lastMessage: conv.messages && conv.messages[0] ? conv.messages[0] : null,

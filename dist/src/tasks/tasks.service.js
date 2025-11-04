@@ -40,6 +40,10 @@ let TasksService = class TasksService {
         const { role } = await this.getActorRole(eventId, departmentId, actor);
         const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
         const where = { eventId, departmentId, deletedAt: null };
+        if (opts.zoneId)
+            where.zoneId = opts.zoneId;
+        if (opts.zonalDeptRowId)
+            where.zonalDeptRowId = opts.zonalDeptRowId;
         if (role === 'SUPER' || rules_1.ADMIN_ROLES.has(role) || role === client_1.EventRole.DEPT_HEAD) {
             if (opts.assigneeId)
                 where.assigneeId = opts.assigneeId;
@@ -66,7 +70,9 @@ let TasksService = class TasksService {
                 updatedAt: true,
                 assigneeId: true,
                 creatorId: true,
+                zoneId: true,
                 venueId: true,
+                zonalDeptRowId: true,
             },
         });
         return tasks;
@@ -90,6 +96,8 @@ let TasksService = class TasksService {
             startAt: dto.startAt ? new Date(dto.startAt) : undefined,
             dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
             assigneeId: dto.assigneeId,
+            zoneId: dto.zoneId,
+            zonalDeptRowId: dto.zonalDeptRowId,
             venueId: dto.venueId,
         };
         return this.prisma.task.create({
@@ -129,6 +137,8 @@ let TasksService = class TasksService {
             startAt: dto.startAt === null ? null : dto.startAt ? new Date(dto.startAt) : undefined,
             dueAt: dto.dueAt === null ? null : dto.dueAt ? new Date(dto.dueAt) : undefined,
             assigneeId: dto.assigneeId === null ? null : dto.assigneeId ?? undefined,
+            zoneId: dto.zoneId === null ? null : dto.zoneId ?? undefined,
+            zonalDeptRowId: dto.zonalDeptRowId === null ? null : dto.zonalDeptRowId ?? undefined,
             venueId: dto.venueId === null ? null : dto.venueId ?? undefined,
         };
         return this.prisma.task.update({

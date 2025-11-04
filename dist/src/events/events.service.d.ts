@@ -29,6 +29,7 @@ export declare class EventsService {
         startsAt: Date | null;
         endsAt: Date | null;
         archivedAt: Date | null;
+        zonesEnabled: boolean;
     }>;
     listForUser(viewer: {
         userId: string;
@@ -88,18 +89,7 @@ export declare class EventsService {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        user: {
-            email: string;
-            id: string;
-            fullName: string;
-            itsId: string | null;
-            profileImage: string | null;
-            designation: string | null;
-        };
-        id: string;
-        createdAt: Date;
         userId: string;
-        role: import("@prisma/client").$Enums.EventRole;
-        departmentId: string | null;
+        user: any;
     }[]>;
 }

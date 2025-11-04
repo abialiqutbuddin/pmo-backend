@@ -7,12 +7,14 @@ import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
 export declare class TasksController {
     private readonly tasks;
     constructor(tasks: TasksService);
-    list(eventId: string, departmentId: string, user: any, cursor?: string, take?: string, assigneeId?: string): Promise<{
+    list(eventId: string, departmentId: string, user: any, cursor?: string, take?: string, assigneeId?: string, zoneId?: string, zonalDeptRowId?: string): Promise<{
         id: string;
         createdAt: Date;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
+        zoneId: string | null;
+        zonalDeptRowId: string | null;
         type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
@@ -39,6 +41,8 @@ export declare class TasksController {
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
+        zoneId: string | null;
+        zonalDeptRowId: string | null;
         type: import("@prisma/client").$Enums.TaskType;
         title: string;
         description: string | null;
@@ -50,7 +54,6 @@ export declare class TasksController {
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
-        sourceIssueId: string | null;
     }>;
     update(eventId: string, departmentId: string, taskId: string, user: any, dto: UpdateTaskDto): Promise<{
         id: string;

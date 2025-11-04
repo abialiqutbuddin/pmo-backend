@@ -7,4 +7,6 @@ export declare class CreateTaskDto {
     dueAt?: string;
     assigneeId?: string;
     venueId?: string;
+    zoneId?: string;
+    zonalDeptRowId?: string;
 }

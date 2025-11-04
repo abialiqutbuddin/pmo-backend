@@ -22,12 +22,14 @@ export class TasksController {
     @Query('cursor') cursor?: string,
     @Query('take') take?: string,
     @Query('assigneeId') assigneeId?: string,
+    @Query('zoneId') zoneId?: string,
+    @Query('zonalDeptRowId') zonalDeptRowId?: string,
   ) {
     return this.tasks.list(
       eventId,
       departmentId,
       { userId: user.sub, isSuperAdmin: user.isSuperAdmin },
-      { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined },
+      { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined, zoneId: zoneId || undefined, zonalDeptRowId: zonalDeptRowId || undefined },
     );
   }
 

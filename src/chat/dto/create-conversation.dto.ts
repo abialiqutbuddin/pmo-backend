@@ -16,12 +16,8 @@ export class CreateConversationDto {
   @IsString()
   departmentId?: string;
 
-  @IsOptional()
-  @IsString()
-  issueId?: string;
 
   @IsOptional()
   @IsArray()
   participantUserIds?: string[]; // for GROUP/DIRECT
 }
-

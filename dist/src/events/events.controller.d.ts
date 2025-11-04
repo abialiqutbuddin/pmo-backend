@@ -28,6 +28,7 @@ export declare class EventsController {
         startsAt: Date | null;
         endsAt: Date | null;
         archivedAt: Date | null;
+        zonesEnabled: boolean;
     }>;
     updateEvent(eventId: string, dto: UpdateEventDto, user: any): Promise<{
         name: string;
@@ -41,19 +42,8 @@ export declare class EventsController {
         ok: boolean;
     }>;
     listMembers(eventId: string, user: any): Promise<{
-        user: {
-            email: string;
-            id: string;
-            fullName: string;
-            itsId: string | null;
-            profileImage: string | null;
-            designation: string | null;
-        };
-        id: string;
-        createdAt: Date;
         userId: string;
-        role: import("@prisma/client").$Enums.EventRole;
-        departmentId: string | null;
+        user: any;
     }[]>;
     addMember(eventId: string, dto: AddMemberDto, user: any): Promise<{
         id: string;

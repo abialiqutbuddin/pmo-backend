@@ -20,6 +20,8 @@ class CreateTaskDto {
     dueAt;
     assigneeId;
     venueId;
+    zoneId;
+    zonalDeptRowId;
 }
 exports.CreateTaskDto = CreateTaskDto;
 __decorate([
@@ -63,4 +65,14 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateTaskDto.prototype, "venueId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateTaskDto.prototype, "zoneId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateTaskDto.prototype, "zonalDeptRowId", void 0);
 //# sourceMappingURL=create-task.dto.js.map

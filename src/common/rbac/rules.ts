@@ -1,4 +1,4 @@
-import { EventRole, Task, Issue } from '@prisma/client';
+import { EventRole, Task } from '@prisma/client';
 
 export const ADMIN_ROLES = new Set<EventRole>([EventRole.OWNER, EventRole.PMO_ADMIN]);
 export const DEPT_ROLES  = new Set<EventRole>([EventRole.DEPT_HEAD, EventRole.DEPT_MEMBER, EventRole.OBSERVER]);
@@ -29,16 +29,4 @@ export function canDeleteTask(role: EventRole, task: Task, actorId: string, same
   return false;
 }
 
-export function canUpdateIssue(role: EventRole, issue: Issue, actorId: string, sameDept: boolean) {
-  if (ADMIN_ROLES.has(role)) return true;
-  if (role === EventRole.DEPT_HEAD && sameDept) return true;
-  if (role === EventRole.DEPT_MEMBER && sameDept) return issue.reporterId === actorId;
-  return false;
-}
-
-export function canDeleteIssue(role: EventRole, issue: Issue, actorId: string, sameDept: boolean) {
-  if (ADMIN_ROLES.has(role)) return true;
-  if (role === EventRole.DEPT_HEAD && sameDept) return true;
-  if (role === EventRole.DEPT_MEMBER && sameDept) return issue.reporterId === actorId;
-  return false;
-}
+// Issue RBAC removed; feedback is open to event scope

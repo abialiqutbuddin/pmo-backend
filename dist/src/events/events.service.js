@@ -91,7 +91,7 @@ let EventsService = class EventsService {
         }
         const e = await this.prisma.event.findUnique({
             where: { id: eventId },
-            select: { id: true, name: true, startsAt: true, endsAt: true, createdAt: true, archivedAt: true },
+            select: { id: true, name: true, startsAt: true, endsAt: true, createdAt: true, archivedAt: true, zonesEnabled: true },
         });
         if (!e)
             throw new common_1.NotFoundException();
@@ -217,18 +217,21 @@ let EventsService = class EventsService {
             if (!m)
                 throw new common_1.NotFoundException();
         }
-        return this.prisma.eventMembership.findMany({
+        const rows = await this.prisma.eventMembership.findMany({
             where: { eventId },
             select: {
-                id: true,
                 userId: true,
-                role: true,
-                departmentId: true,
-                createdAt: true,
                 user: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true, designation: true } },
+                createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
         });
+        const byUser = new Map();
+        for (const r of rows) {
+            if (!byUser.has(r.userId))
+                byUser.set(r.userId, { userId: r.userId, user: r.user });
+        }
+        return Array.from(byUser.values()).sort((a, b) => (a.user?.fullName || '').localeCompare(b.user?.fullName || ''));
     }
 };
 exports.EventsService = EventsService;

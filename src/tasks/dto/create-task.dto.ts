@@ -9,4 +9,7 @@ export class CreateTaskDto {
   @IsOptional() @IsISO8601() dueAt?: string;
   @IsOptional() @IsString() assigneeId?: string;
   @IsOptional() @IsString() venueId?: string;
+  @IsOptional() @IsString() zoneId?: string;
+  // When set, must be a ZoneZonalDepartment.id
+  @IsOptional() @IsString() zonalDeptRowId?: string;
 }

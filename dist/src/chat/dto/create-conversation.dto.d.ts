@@ -4,6 +4,5 @@ export declare class CreateConversationDto {
     kind: ConversationKind;
     title?: string;
     departmentId?: string;
-    issueId?: string;
     participantUserIds?: string[];
 }

@@ -7,4 +7,6 @@ export declare class UpdateTaskDto {
     dueAt?: string | null;
     assigneeId?: string | null;
     venueId?: string | null;
+    zoneId?: string | null;
+    zonalDeptRowId?: string | null;
 }

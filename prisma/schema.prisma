@@ -29,20 +29,6 @@ enum ConversationKind {
   DIRECT       // DM
 }
 
-enum IssueSeverity {
-  critical
-  high
-  normal
-  low
-}
-
-enum IssueStatus {
-  open
-  triaged
-  in_progress
-  resolved
-  closed
-}
 
 enum TaskStatus {
   todo
@@ -143,7 +129,6 @@ model User {
   participants     Participant[]
 
   // issues & tasks
-  issues           Issue[]             // reporter side (matches Issue.reporter without a named relation)
   tasksAssigned    Task[]              @relation("TaskAssignee")
   tasksCreated     Task[]              @relation("TaskCreator")
 
@@ -155,6 +140,8 @@ model User {
   sessions         SessionToken[]
 
   @@index([createdAt])
+  ZoneAssignment ZoneAssignment[]
+  ZoneDeptAssignment ZoneDeptAssignment[]
 }
 
 model SessionToken {
@@ -190,16 +177,21 @@ model Event {
   departments   Department[]
   memberships   EventMembership[]
   conversations Conversation[]
-  issues        Issue[]
+  feedbacks     Feedback[]
   tasks         Task[]
   interDeptReqs InterDeptRequest[]
   auditLogs     AuditLog[]
+
+  // Zones support
+  zonesEnabled  Boolean        @default(false)
+  zones         Zone[]
 
   @@index([createdAt])
   NotificationPref NotificationPref[]
   Notification Notification[]
   AttachmentLink AttachmentLink[]
   Venue Venue[]
+  ZonalDepartmentTemplate ZonalDepartmentTemplate[]
 }
 
 model Department {
@@ -211,12 +203,13 @@ model Department {
   members   EventMembership[]
   tasks     Task[]
   conversations Conversation[]
-  issues    Issue[]
   requestsAsSource InterDeptRequest[] @relation("ReqFromDept")
   requestsAsTarget InterDeptRequest[] @relation("ReqToDept")
 
   @@unique([eventId, name]) // unique dept names within an event
   @@index([eventId])
+  ZoneDeptAssignment ZoneDeptAssignment[]
+  ZoneDepartment ZoneDepartment[]
 }
 
 model EventMembership {
@@ -248,7 +241,6 @@ model Conversation {
   kind          ConversationKind
   title         String?
   departmentId  String?
-  issueId       String?
 
   isArchived    Boolean          @default(false)
   createdAt     DateTime         @default(now())
@@ -256,14 +248,12 @@ model Conversation {
 
   event         Event            @relation(fields: [eventId], references: [id])
   department    Department?      @relation(fields: [departmentId], references: [id])
-  issue         Issue?           @relation(fields: [issueId], references: [id])
 
   participants  Participant[]
   messages      Message[]
 
   @@index([eventId, kind])
   @@index([departmentId])
-  @@unique([issueId]) // one canonical room per Issue
 }
 
 model Participant {
@@ -338,30 +328,24 @@ model Reaction {
    Issues
    ========================= */
 
-model Issue {
-  id          String        @id @default(cuid())
-  eventId     String
-  reporterId  String
-  departmentId String?
-  severity    IssueSeverity @default(normal)
-  status      IssueStatus   @default(open)
-  title       String
-  description String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  closedAt    DateTime?
-  deletedAt   DateTime?
+// Feedback submitted for an event (optionally tied to a venue)
+model Feedback {
+  id            String    @id @default(cuid())
+  eventId       String
+  venueId       String?
+  name          String?
+  email         String?
+  phone         String?
+  description   String
+  dateOccurred  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  event       Event         @relation(fields: [eventId], references: [id])
-  reporter    User          @relation(fields: [reporterId], references: [id])
-  department  Department?   @relation(fields: [departmentId], references: [id])
-  conversation Conversation?
-  //attachments IssueAttachment[]
-  tasks         Task[]   @relation("IssueTasks")
-  //linkedTask  Task?         @relation("IssueTaskLink")
+  event         Event     @relation(fields: [eventId], references: [id])
+  venue         Venue?    @relation(fields: [venueId], references: [id])
 
-  @@index([eventId, severity, status])
-  @@index([departmentId])
+  @@index([eventId, dateOccurred])
+  @@index([venueId])
 }
 
 
@@ -424,6 +408,8 @@ model Task {
   creatorId    String
   assigneeId   String?
   venueId      String?
+  zoneId       String?
+  zonalDeptRowId String? // references ZoneZonalDepartment.id
   type         TaskType    @default(new_task)
   title        String
   description  String?
@@ -442,20 +428,20 @@ model Task {
   creator      User         @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
   venue        Venue?       @relation(fields: [venueId], references: [id])
+  zone         Zone?        @relation(fields: [zoneId], references: [id])
+  zonalDeptRow  ZoneZonalDepartment? @relation(fields: [zonalDeptRowId], references: [id])
 
   //attachments  TaskAttachment[]
   blockers     TaskDependency[] @relation("Blockers")
   dependents   TaskDependency[] @relation("Dependents")
-  sourceIssueId  String?
-  sourceIssue    Issue?    @relation("IssueTasks", fields: [sourceIssueId], references: [id], onDelete: SetNull)
-
-  //sourceIssue  Issue?          @relation("IssueTaskLink", fields: [id], references: [id])
+  //sourceIssue removed
 
   @@index([eventId, departmentId])
   @@index([status, dueAt])
   @@index([assigneeId, status])
   @@index([venueId])
-  @@index([sourceIssueId])
+  @@index([zoneId])
+  @@index([zonalDeptRowId])
   InterDeptRequest InterDeptRequest[]
   //Issue Issue[] @relation("IssueTasks")
 }
@@ -471,6 +457,100 @@ model Venue {
 
   @@unique([eventId, name])
   @@index([eventId])
+  Feedback Feedback[]
+}
+
+/* =========================
+   Zones
+   ========================= */
+
+model Zone {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  tasks     Task[]
+  assignments ZoneAssignment[]
+  deptMaps       ZoneDepartment[]
+  zdeptMaps      ZoneZonalDepartment[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
+  ZoneDeptAssignment ZoneDeptAssignment[]
+}
+
+model ZoneAssignment {
+  id       String  @id @default(cuid())
+  zoneId   String
+  userId   String
+  role     String  // e.g., POC, MEMBER
+
+  zone     Zone    @relation(fields: [zoneId], references: [id])
+  user     User    @relation(fields: [userId], references: [id])
+
+  @@unique([zoneId, userId])
+  @@index([userId])
+}
+
+model ZoneDeptAssignment {
+  id           String @id @default(cuid())
+  zoneId       String
+  departmentId String
+  userId       String
+  role         String // e.g., DEPT_HEAD, DEPT_MEMBER
+
+  zone         Zone       @relation(fields: [zoneId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@unique([zoneId, departmentId, userId])
+  @@index([userId])
+  @@index([zoneId, departmentId])
+}
+
+// Departments available within a zone
+model ZoneDepartment {
+  id           String @id @default(cuid())
+  zoneId       String
+  departmentId String
+
+  zone         Zone       @relation(fields: [zoneId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([zoneId, departmentId])
+  @@index([zoneId])
+}
+
+// Zonal department templates (event-level names applied to all zones)
+model ZonalDepartmentTemplate {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  zones     ZoneZonalDepartment[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
+
+// Mapping of a zonal department template into a specific zone
+model ZoneZonalDepartment {
+  id       String   @id @default(cuid())
+  zoneId   String
+  zdeptId  String
+
+  zone     Zone     @relation(fields: [zoneId], references: [id])
+  zdept    ZonalDepartmentTemplate @relation(fields: [zdeptId], references: [id])
+
+  @@unique([zoneId, zdeptId])
+  @@index([zoneId])
+  Task Task[]
 }
 
 // model TaskAttachment {

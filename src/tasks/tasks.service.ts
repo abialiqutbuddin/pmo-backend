@@ -36,13 +36,15 @@ export class TasksService {
     eventId: string,
     departmentId: string,
     actor: Actor,
-    opts: { cursor?: string; take?: number; assigneeId?: string } = {},
+    opts: { cursor?: string; take?: number; assigneeId?: string; zoneId?: string; zonalDeptRowId?: string } = {},
   ) {
     // must be at least a member of the event; also figure out role
     const { role } = await this.getActorRole(eventId, departmentId, actor);
 
     const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
     const where: any = { eventId, departmentId, deletedAt: null as Date | null };
+    if (opts.zoneId) where.zoneId = opts.zoneId;
+    if (opts.zonalDeptRowId) where.zonalDeptRowId = opts.zonalDeptRowId;
 
     // Enforce visibility rules:
     // - SUPER/ADMIN/DEPT_HEAD can see all; if assigneeId provided, filter by it
@@ -72,7 +74,9 @@ export class TasksService {
         updatedAt: true,
         assigneeId: true,
         creatorId: true,
+        zoneId: true,
         venueId: true,
+        zonalDeptRowId: true,
       },
     });
     return tasks;
@@ -99,6 +103,8 @@ export class TasksService {
       startAt: dto.startAt ? new Date(dto.startAt) : undefined,
       dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
       assigneeId: dto.assigneeId,
+      zoneId: dto.zoneId,
+      zonalDeptRowId: (dto as any).zonalDeptRowId,
       venueId: dto.venueId,
     };
     return this.prisma.task.create({
@@ -143,6 +149,8 @@ export class TasksService {
       startAt: dto.startAt === null ? null : dto.startAt ? new Date(dto.startAt) : undefined,
       dueAt: dto.dueAt === null ? null : dto.dueAt ? new Date(dto.dueAt) : undefined,
       assigneeId: dto.assigneeId === null ? null : dto.assigneeId ?? undefined,
+      zoneId: (dto as any).zoneId === null ? null : (dto as any).zoneId ?? undefined,
+      zonalDeptRowId: (dto as any).zonalDeptRowId === null ? null : (dto as any).zonalDeptRowId ?? undefined,
       venueId: dto.venueId === null ? null : dto.venueId ?? undefined,
     };
 
