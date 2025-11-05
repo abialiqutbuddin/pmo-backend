@@ -1,9 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { ADMIN_ROLES, canCreateInDept, canDeleteTask, canUpdateTask, canManageInDept } from '../common/rbac/rules';
+import { MailerService } from '../mail/mailer.service';
 import { DependencyType, EventRole, TaskStatus } from '@prisma/client';
 import { AddDependencyDto } from './dto/dependencies/add-dependency.dto';
 import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
@@ -12,7 +13,8 @@ type Actor = { userId: string; isSuperAdmin: boolean };
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(TasksService.name);
+  constructor(private readonly prisma: PrismaService, private readonly mailer: MailerService) {}
 
   private async getActorRole(eventId: string, departmentId: string, actor: Actor) {
     if (actor.isSuperAdmin) return { role: 'SUPER' as const, sameDept: true };
@@ -108,10 +110,37 @@ export class TasksService {
       zonalDeptRowId: (dto as any).zonalDeptRowId,
       venueId: dto.venueId,
     };
-    return this.prisma.task.create({
+    const created = await this.prisma.task.create({
       data,
       select: { id: true, title: true, status: true, priority: true, assigneeId: true, createdAt: true },
     });
+    // Notify assignee (if any) in background
+    if (created.assigneeId) {
+      // Enqueue email job
+      const [assignee, dept, ev, actorUser] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: created.assigneeId! }, select: { email: true, fullName: true } }),
+        this.prisma.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
+        this.prisma.event.findUnique({ where: { id: eventId }, select: { name: true } }),
+        this.prisma.user.findUnique({ where: { id: actor.userId }, select: { fullName: true } }),
+      ]);
+      if (assignee?.email) {
+        setImmediate(async () => {
+          try {
+            await this.mailer.sendTaskAssignedEmail({
+              to: assignee.email,
+              assigneeName: assignee.fullName || undefined,
+              taskTitle: created.title,
+              departmentName: dept?.name,
+              eventName: ev?.name,
+              actorName: actorUser?.fullName || undefined,
+            });
+          } catch (e: any) {
+            this.logger.warn(`Email notify (create) failed: ${e?.message || e}`);
+          }
+        });
+      }
+    }
+    return created;
   }
 
   /* ---------- Get ---------- */
@@ -155,11 +184,36 @@ export class TasksService {
       venueId: dto.venueId === null ? null : dto.venueId ?? undefined,
     };
 
-    return this.prisma.task.update({
+    const updated = await this.prisma.task.update({
       where: { id: task.id },
       data,
       select: { id: true, title: true, status: true, priority: true, assigneeId: true, updatedAt: true },
     });
+    // If assignee changed and not null, notify new assignee (background)
+    const nextAssignee = data.assigneeId === undefined ? task.assigneeId : data.assigneeId;
+    if (nextAssignee && nextAssignee !== task.assigneeId) {
+      const [assignee, dept, ev] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: nextAssignee! }, select: { email: true, fullName: true } }),
+        this.prisma.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
+        this.prisma.event.findUnique({ where: { id: eventId }, select: { name: true } }),
+      ]);
+      if (assignee?.email) {
+        setImmediate(async () => {
+          try {
+            await this.mailer.sendTaskAssignedEmail({
+              to: assignee.email,
+              assigneeName: assignee.fullName || undefined,
+              taskTitle: updated.title,
+              departmentName: dept?.name,
+              eventName: ev?.name,
+            });
+          } catch (e: any) {
+            this.logger.warn(`Email notify (update) failed: ${e?.message || e}`);
+          }
+        });
+      }
+    }
+    return updated;
   }
 
   /* ---------- Change Status ---------- */

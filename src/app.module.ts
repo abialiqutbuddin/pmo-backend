@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { EventsModule } from './events/events.module';
 import { UsersModule } from './users/users.module';
 import { DepartmentsModule } from './departments/departments.module';
+import { MailerModule } from './mail/mailer.module';
 import { TasksModule } from './tasks/tasks.module';
 // import { IssuesModule } from './issues/issues.module';
 import { FeedbackModule } from './feedback/feedback.module';
@@ -16,7 +17,7 @@ import { ZonesModule } from './zones/zones.module';
 
 @Module({
   imports: [AuthModule,
-    UsersModule, EventsModule,DepartmentsModule,TasksModule, FeedbackModule,AttachmentsModule, ChatModule, MediaModule, VenuesModule, ZonesModule],
+    UsersModule, EventsModule,DepartmentsModule,TasksModule, FeedbackModule,AttachmentsModule, ChatModule, MediaModule, VenuesModule, ZonesModule, MailerModule],
   controllers: [AppController],
   providers: [AppService],
 })
