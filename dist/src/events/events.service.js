@@ -221,17 +221,14 @@ let EventsService = class EventsService {
             where: { eventId },
             select: {
                 userId: true,
+                role: true,
+                departmentId: true,
                 user: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true, designation: true } },
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
         });
-        const byUser = new Map();
-        for (const r of rows) {
-            if (!byUser.has(r.userId))
-                byUser.set(r.userId, { userId: r.userId, user: r.user });
-        }
-        return Array.from(byUser.values()).sort((a, b) => (a.user?.fullName || '').localeCompare(b.user?.fullName || ''));
+        return rows;
     }
 };
 exports.EventsService = EventsService;

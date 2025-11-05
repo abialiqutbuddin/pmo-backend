@@ -129,15 +129,30 @@ let DepartmentsService = class DepartmentsService {
     }
     async listAssignable(eventId, departmentId, viewer, q) {
         await this.assertMember(eventId, viewer.userId, viewer.isSuperAdmin);
-        const members = await this.prisma.eventMembership.findMany({
-            where: { eventId, departmentId: null },
-            include: { user: { select: { id: true, fullName: true, email: true } } },
+        const memberships = await this.prisma.eventMembership.findMany({
+            where: { eventId },
+            select: {
+                userId: true,
+                departmentId: true,
+                user: { select: { id: true, fullName: true, email: true } },
+            },
+            orderBy: { createdAt: 'desc' },
         });
-        const filtered = q
-            ? members.filter(m => m.user.fullName.toLowerCase().includes(q.toLowerCase()) ||
-                m.user.email.toLowerCase().includes(q.toLowerCase()))
-            : members;
-        return filtered.map(m => ({ userId: m.user.id, fullName: m.user.fullName, email: m.user.email }));
+        const alreadyInDept = new Set(memberships.filter(m => m.departmentId === departmentId).map(m => m.userId));
+        const pool = memberships.filter(m => !alreadyInDept.has(m.userId));
+        const byUser = new Map();
+        for (const m of pool) {
+            if (!byUser.has(m.userId)) {
+                byUser.set(m.userId, { userId: m.user.id, fullName: m.user.fullName, email: m.user.email });
+            }
+        }
+        let result = Array.from(byUser.values());
+        if (q && q.trim()) {
+            const term = q.trim().toLowerCase();
+            result = result.filter(r => (r.fullName || '').toLowerCase().includes(term) || (r.email || '').toLowerCase().includes(term));
+        }
+        result.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+        return result;
     }
     async bulkAddMembers(eventId, departmentId, items, actor) {
         await this.assertAdmin(eventId, actor.userId, actor.isSuperAdmin);

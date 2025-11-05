@@ -10,6 +10,7 @@ import {
     Res,
     BadRequestException,
     Query,
+    Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -64,5 +65,13 @@ export class AttachmentsController {
             throw new BadRequestException('entityType and entityId are required');
         }
         return this.attachments.listForEntity({ eventId, entityType, entityId });
+    }
+
+    @Delete(':id')
+    async remove(
+        @Param('eventId') eventId: string,
+        @Param('id') id: string,
+    ) {
+        return this.attachments.deleteForEvent(eventId, id);
     }
 }

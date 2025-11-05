@@ -7,33 +7,33 @@ export declare class DepartmentsController {
     private readonly depts;
     constructor(depts: DepartmentsService);
     list(eventId: string, user: any): Promise<{
-        name: string;
         id: string;
+        name: string;
     }[]>;
     create(eventId: string, dto: CreateDepartmentDto, user: any): Promise<{
-        name: string;
         id: string;
+        name: string;
     }>;
     update(eventId: string, departmentId: string, dto: UpdateDepartmentDto, user: any): Promise<{
-        name: string;
         id: string;
+        name: string;
     }>;
     remove(eventId: string, departmentId: string, user: any): Promise<{
         ok: boolean;
     }>;
     listMembers(eventId: string, departmentId: string, user: any): Promise<{
+        id: string;
+        userId: string;
+        role: import("@prisma/client").$Enums.EventRole;
+        departmentId: string | null;
+        createdAt: Date;
         user: {
-            email: string;
             id: string;
+            email: string;
             fullName: string;
             itsId: string | null;
             profileImage: string | null;
         };
-        id: string;
-        createdAt: Date;
-        userId: string;
-        role: import("@prisma/client").$Enums.EventRole;
-        departmentId: string | null;
     }[]>;
     addMember(eventId: string, departmentId: string, dto: AddDeptMemberDto, user: any): Promise<{
         id: string;

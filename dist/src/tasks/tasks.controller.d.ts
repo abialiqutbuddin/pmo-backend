@@ -9,7 +9,6 @@ export declare class TasksController {
     constructor(tasks: TasksService);
     list(eventId: string, departmentId: string, user: any, cursor?: string, take?: string, assigneeId?: string, zoneId?: string, zonalDeptRowId?: string): Promise<{
         id: string;
-        createdAt: Date;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
@@ -23,21 +22,21 @@ export declare class TasksController {
         progressPct: number;
         startAt: Date | null;
         dueAt: Date | null;
+        createdAt: Date;
         updatedAt: Date;
     }[]>;
     create(eventId: string, departmentId: string, user: any, dto: CreateTaskDto): Promise<{
         id: string;
-        createdAt: Date;
         assigneeId: string | null;
         title: string;
         priority: number;
         status: import("@prisma/client").$Enums.TaskStatus;
+        createdAt: Date;
     }>;
     get(eventId: string, departmentId: string, taskId: string, user: any): Promise<{
         id: string;
-        createdAt: Date;
-        departmentId: string;
         eventId: string;
+        departmentId: string;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
@@ -51,6 +50,7 @@ export declare class TasksController {
         progressPct: number;
         startAt: Date | null;
         dueAt: Date | null;
+        createdAt: Date;
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;

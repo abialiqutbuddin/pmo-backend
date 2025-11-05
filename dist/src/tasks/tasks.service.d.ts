@@ -20,7 +20,6 @@ export declare class TasksService {
         zonalDeptRowId?: string;
     }): Promise<{
         id: string;
-        createdAt: Date;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
@@ -34,21 +33,21 @@ export declare class TasksService {
         progressPct: number;
         startAt: Date | null;
         dueAt: Date | null;
+        createdAt: Date;
         updatedAt: Date;
     }[]>;
     create(eventId: string, departmentId: string, actor: Actor, dto: CreateTaskDto): Promise<{
         id: string;
-        createdAt: Date;
         assigneeId: string | null;
         title: string;
         priority: number;
         status: import("@prisma/client").$Enums.TaskStatus;
+        createdAt: Date;
     }>;
     get(eventId: string, departmentId: string, taskId: string, actor: Actor): Promise<{
         id: string;
-        createdAt: Date;
-        departmentId: string;
         eventId: string;
+        departmentId: string;
         creatorId: string;
         assigneeId: string | null;
         venueId: string | null;
@@ -62,6 +61,7 @@ export declare class TasksService {
         progressPct: number;
         startAt: Date | null;
         dueAt: Date | null;
+        createdAt: Date;
         updatedAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;

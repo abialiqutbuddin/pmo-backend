@@ -38,8 +38,8 @@ export class TasksService {
     actor: Actor,
     opts: { cursor?: string; take?: number; assigneeId?: string; zoneId?: string; zonalDeptRowId?: string } = {},
   ) {
-    // must be at least a member of the event; also figure out role
-    const { role } = await this.getActorRole(eventId, departmentId, actor);
+    // must be at least a member of the event; also figure out role and whether it's the same department
+    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
 
     const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
     const where: any = { eventId, departmentId, deletedAt: null as Date | null };
@@ -48,10 +48,11 @@ export class TasksService {
 
     // Enforce visibility rules:
     // - SUPER/ADMIN/DEPT_HEAD can see all; if assigneeId provided, filter by it
-    // - DEPT_MEMBER only sees tasks assigned to themselves
+    // - DEPT_MEMBER only sees tasks assigned to themselves (previous logic)
     if (role === 'SUPER' || ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD) {
       if (opts.assigneeId) where.assigneeId = opts.assigneeId;
     } else if ((role as EventRole) === EventRole.DEPT_MEMBER) {
+      // restrict to own assignments regardless of dept, matching prior behavior
       where.assigneeId = actor.userId;
     }
 

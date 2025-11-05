@@ -143,19 +143,44 @@ export class DepartmentsService {
         // must be at least a member to see
         await this.assertMember(eventId, viewer.userId, viewer.isSuperAdmin);
 
-        // get all event members with user info
-        const members = await this.prisma.eventMembership.findMany({
-            where: { eventId, departmentId: null }, // event-scoped members not yet tied to this dept
-            include: { user: { select: { id: true, fullName: true, email: true } } },
+        // Fetch all event memberships with user info
+        const memberships = await this.prisma.eventMembership.findMany({
+            where: { eventId },
+            select: {
+                userId: true,
+                departmentId: true,
+                user: { select: { id: true, fullName: true, email: true } },
+            },
+            orderBy: { createdAt: 'desc' },
         });
 
-        const filtered = q
-            ? members.filter(m =>
-                m.user.fullName.toLowerCase().includes(q.toLowerCase()) ||
-                m.user.email.toLowerCase().includes(q.toLowerCase()))
-            : members;
+        // Exclude users already in this department
+        const alreadyInDept = new Set(
+            memberships.filter(m => m.departmentId === departmentId).map(m => m.userId)
+        );
 
-        return filtered.map(m => ({ userId: m.user.id, fullName: m.user.fullName, email: m.user.email }));
+        // Candidate pool: all event members not currently in this department
+        const pool = memberships.filter(m => !alreadyInDept.has(m.userId));
+
+        // Deduplicate by userId so each user appears once
+        const byUser = new Map<string, { userId: string; fullName: string; email: string }>();
+        for (const m of pool) {
+            if (!byUser.has(m.userId)) {
+                byUser.set(m.userId, { userId: m.user.id, fullName: m.user.fullName, email: m.user.email });
+            }
+        }
+
+        let result = Array.from(byUser.values());
+        if (q && q.trim()) {
+            const term = q.trim().toLowerCase();
+            result = result.filter(r =>
+                (r.fullName || '').toLowerCase().includes(term) || (r.email || '').toLowerCase().includes(term)
+            );
+        }
+
+        // Sort by name for nicer UX
+        result.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+        return result;
     }
 
     // departments.service.ts

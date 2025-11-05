@@ -37,7 +37,7 @@ let TasksService = class TasksService {
         return { role: topRole, sameDept };
     }
     async list(eventId, departmentId, actor, opts = {}) {
-        const { role } = await this.getActorRole(eventId, departmentId, actor);
+        const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
         const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
         const where = { eventId, departmentId, deletedAt: null };
         if (opts.zoneId)

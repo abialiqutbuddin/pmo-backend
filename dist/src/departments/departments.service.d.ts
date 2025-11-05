@@ -14,22 +14,22 @@ export declare class DepartmentsService {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        name: string;
         id: string;
+        name: string;
     }[]>;
     create(eventId: string, dto: CreateDepartmentDto, actor: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        name: string;
         id: string;
+        name: string;
     }>;
     update(eventId: string, departmentId: string, dto: UpdateDepartmentDto, actor: {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
-        name: string;
         id: string;
+        name: string;
     }>;
     remove(eventId: string, departmentId: string, actor: {
         userId: string;
@@ -41,18 +41,18 @@ export declare class DepartmentsService {
         userId: string;
         isSuperAdmin: boolean;
     }): Promise<{
+        id: string;
+        userId: string;
+        role: import("@prisma/client").$Enums.EventRole;
+        departmentId: string | null;
+        createdAt: Date;
         user: {
-            email: string;
             id: string;
+            email: string;
             fullName: string;
             itsId: string | null;
             profileImage: string | null;
         };
-        id: string;
-        createdAt: Date;
-        userId: string;
-        role: import("@prisma/client").$Enums.EventRole;
-        departmentId: string | null;
     }[]>;
     addMember(eventId: string, departmentId: string, dto: AddDeptMemberDto, actor: {
         userId: string;

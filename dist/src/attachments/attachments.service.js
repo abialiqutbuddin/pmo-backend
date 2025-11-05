@@ -155,6 +155,12 @@ let AttachmentsService = class AttachmentsService {
         }
         return { ok: true };
     }
+    async deleteForEvent(eventId, id, alsoRemoveFile = false) {
+        const exists = await this.prisma.attachment.findFirst({ where: { id, eventId, deletedAt: null }, select: { id: true } });
+        if (!exists)
+            throw new common_1.NotFoundException('Attachment not found');
+        return this.delete(id, alsoRemoveFile);
+    }
 };
 exports.AttachmentsService = AttachmentsService;
 exports.AttachmentsService = AttachmentsService = __decorate([

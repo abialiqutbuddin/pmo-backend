@@ -11,10 +11,13 @@ export declare class AttachmentsController {
     download(id: string, res: express.Response): Promise<void>;
     list(eventId: string, entityType: string, entityId: string): Promise<{
         id: string;
-        createdAt: Date;
         objectKey: string;
         originalName: string;
         mimeType: string;
         size: number;
+        createdAt: Date;
     }[]>;
+    remove(eventId: string, id: string): Promise<{
+        ok: boolean;
+    }>;
 }

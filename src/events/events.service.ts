@@ -236,21 +236,20 @@ export class EventsService {
             const m = await this.prisma.eventMembership.findFirst({ where: { eventId, userId: viewer.userId } });
             if (!m) throw new NotFoundException();
         }
+        // Return full membership rows so the frontend can determine
+        // roles and department-scoped access correctly. Consumers that
+        // need unique users should deduplicate on their side.
         const rows = await this.prisma.eventMembership.findMany({
             where: { eventId },
             select: {
                 userId: true,
+                role: true,
+                departmentId: true,
                 user: { select: { id: true, fullName: true, email: true, itsId: true, profileImage: true, designation: true } },
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
         });
-        // Deduplicate per userId so consumers don't see multiple entries for multiple roles/departments
-        const byUser = new Map<string, { userId: string; user: any }>();
-        for (const r of rows) {
-            if (!byUser.has(r.userId)) byUser.set(r.userId, { userId: r.userId, user: r.user });
-        }
-        // Sort by user fullName for nicer UX
-        return Array.from(byUser.values()).sort((a, b) => (a.user?.fullName || '').localeCompare(b.user?.fullName || ''));
+        return rows;
     }
 }

@@ -16,13 +16,16 @@ export declare class AttachmentsService {
         entityId: string;
     }): Promise<{
         id: string;
-        createdAt: Date;
         objectKey: string;
         originalName: string;
         mimeType: string;
         size: number;
+        createdAt: Date;
     }[]>;
     delete(id: string, alsoRemoveFile?: boolean): Promise<{
+        ok: boolean;
+    }>;
+    deleteForEvent(eventId: string, id: string, alsoRemoveFile?: boolean): Promise<{
         ok: boolean;
     }>;
 }

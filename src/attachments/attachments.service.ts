@@ -157,4 +157,13 @@ async listForEntity(input: { eventId: string; entityType: string; entityId: stri
     }
     return { ok: true };
   }
+
+  /**
+   * Delete attachment but ensure it belongs to the provided eventId.
+   */
+  async deleteForEvent(eventId: string, id: string, alsoRemoveFile = false) {
+    const exists = await this.prisma.attachment.findFirst({ where: { id, eventId, deletedAt: null }, select: { id: true } });
+    if (!exists) throw new NotFoundException('Attachment not found');
+    return this.delete(id, alsoRemoveFile);
+  }
 }
