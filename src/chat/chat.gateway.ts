@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer, MessageBody, ConnectedSocket } from '@nestjs/websockets';
+import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer, MessageBody, ConnectedSocket, WsException } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
@@ -150,6 +150,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message.react')
   async onReact(@MessageBody() body: { messageId: string; emoji: string }, @ConnectedSocket() client: Socket) {
     const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
+    if (!user) throw new WsException('Unauthorized');
     const r = await this.chat.addReaction(body, user);
     this.server.emit('message.reaction', { messageId: body.messageId, userId: user.id, emoji: body.emoji, action: r.action });
     return r;
@@ -158,6 +159,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('conversation.read')
   async onRead(@MessageBody() body: { conversationId: string }, @ConnectedSocket() client: Socket) {
     const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
+    if (!user) throw new WsException('Unauthorized');
     const r = await this.chat.markRead(body, user);
     this.server.to(`conv:${body.conversationId}`).emit('conversation.read', { conversationId: body.conversationId, userId: user.id, at: r.at });
     return r;

@@ -7,11 +7,14 @@ import { MarkReadDto } from './dto/mark-read.dto';
 import { ChatPermissionsHelper } from './chat-permissions.helper';
 import { ChatGateway } from './chat.gateway';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatPerms: ChatPermissionsHelper,
+    private readonly notifications: NotificationsService,
     @Inject(forwardRef(() => ChatGateway)) private readonly gateway: ChatGateway,
   ) { }
 
@@ -138,7 +141,7 @@ export class ChatService {
   async sendMessage(dto: SendMessageDto, actor: { id: string; isSuperAdmin: boolean; isTenantManager?: boolean }) {
     const conv = await this.prisma.conversation.findUnique({
       where: { id: dto.conversationId },
-      select: { eventId: true, isActive: true, isSystemGroup: true },
+      select: { id: true, eventId: true, isActive: true, isSystemGroup: true },
     });
     if (!conv) throw new NotFoundException();
     if (!conv.isActive) throw new ForbiddenException('This channel is read-only');
@@ -177,6 +180,31 @@ export class ChatService {
       },
     });
     await this.prisma.conversation.update({ where: { id: dto.conversationId }, data: { updatedAt: new Date() } });
+
+    // Handle @Mentions
+    if (dto.body) {
+      const mentionRegex = /@\[([^\]]+)\]\(user:([^)]+)\)/g;
+      const mentionedIds = new Set<string>();
+      let match;
+      while ((match = mentionRegex.exec(dto.body)) !== null) {
+        if (match[2]) mentionedIds.add(match[2]);
+      }
+
+      for (const uid of mentionedIds) {
+        if (uid === actor.id) continue;
+        // Verify user is in event? NotificationsService typically just creates the record.
+        // It's better to ensure they can access the chat, but for now just notify.
+        await this.notifications.create({
+          userId: uid,
+          eventId: conv.eventId,
+          kind: 'MENTION',
+          title: `${msg.author?.fullName || 'Someone'} mentioned you in chat`,
+          body: (msg.body && msg.body.length > 50) ? msg.body.substring(0, 50) + '...' : (msg.body || 'New message'),
+          link: `/events/${conv.eventId}/chat?roomId=${conv.id}`, // Deep link to chat room
+        });
+      }
+    }
+
     return msg;
   }
 

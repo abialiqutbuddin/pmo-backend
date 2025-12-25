@@ -113,9 +113,20 @@ export class TasksService {
       select: {
         id: true,
         title: true,
+        departmentId: true,
+        department: { select: { name: true } },
+        description: true,
         status: true,
         priority: true,
+        progressPct: true,
+        startAt: true,
+        dueAt: true,
         assignee: { select: { id: true, fullName: true, profileImage: true } },
+        blockedBy: {
+          select: {
+            blocker: { select: { id: true, title: true, status: true } }
+          }
+        },
       },
     });
   }
