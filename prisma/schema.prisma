@@ -692,7 +692,7 @@ model ZoneDeptAssignment {
 
   zone       Zone       @relation(fields: [zoneId], references: [id])
   department Department @relation(fields: [departmentId], references: [id])
-  user       User       @relation(fields: [userId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], map: "ZoneDeptAssignment_userId_fkey_v2")
 
   @@unique([zoneId, departmentId, userId])
   @@index([userId])
