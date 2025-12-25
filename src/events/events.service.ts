@@ -101,7 +101,7 @@ export class EventsService {
                             eventId_userId_departmentId: {
                                 eventId: event.id,
                                 userId: tm.id,
-                                departmentId: undefined as any,
+                                departmentId: null,
                             },
                         },
                         update: {},
