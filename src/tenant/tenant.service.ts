@@ -28,6 +28,7 @@ export class TenantService {
                     tenantId: tenant.id,
                     passwordHash,
                     isSuperAdmin: false,
+                    isTenantManager: true,
                 },
             });
 
@@ -64,7 +65,16 @@ export class TenantService {
 
     async findAll() {
         return this.prisma.tenant.findMany({
-            orderBy: { name: 'asc' },
+        });
+    }
+
+    async delete(id: string) {
+        // Due to CASCADE relations in schema, deleting tenant deletes all:
+        // - Roles
+        // - Users
+        // - Events (and their Tasks, Depts via Event-level cascade)
+        return this.prisma.tenant.delete({
+            where: { id }
         });
     }
 }

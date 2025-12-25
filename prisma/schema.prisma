@@ -65,7 +65,7 @@ model Role {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   permissions Permission[]
   users       User[]
   memberships EventMembership[]
@@ -218,7 +218,7 @@ model User {
   // refresh sessions
   sessions          SessionToken[]
 
-  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   roles                Role[]
   ZoneAssignment       ZoneAssignment[]
   ZoneDeptAssignment   ZoneDeptAssignment[]
@@ -282,7 +282,7 @@ model Event {
   zonesEnabled Boolean @default(false)
   zones        Zone[]
 
-  tenant                  Tenant                    @relation(fields: [tenantId], references: [id])
+  tenant                  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   NotificationPref        NotificationPref[]
   Notification            Notification[]
   AttachmentLink          AttachmentLink[]
@@ -299,7 +299,7 @@ model Department {
   name    String
   parentId String?
 
-  event              Event                @relation(fields: [eventId], references: [id])
+  event              Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   parent             Department?          @relation("DeptHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children           Department[]         @relation("DeptHierarchy")
 
@@ -328,7 +328,7 @@ model EventMembership {
   invitedById  String?
   createdAt    DateTime @default(now())
 
-  event      Event       @relation(fields: [eventId], references: [id])
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user       User        @relation(fields: [userId], references: [id])
   department Department? @relation(fields: [departmentId], references: [id])
   invitedBy  User?       @relation("Inviter", fields: [invitedById], references: [id])
@@ -382,7 +382,7 @@ model Conversation {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  event      Event       @relation(fields: [eventId], references: [id])
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id])
 
   participants Participant[]
@@ -479,7 +479,7 @@ model Feedback {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  event Event  @relation(fields: [eventId], references: [id])
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   venue Venue? @relation(fields: [venueId], references: [id])
 
   @@index([eventId, dateOccurred])
@@ -562,7 +562,7 @@ model Task {
   completedAt    DateTime?
   deletedAt      DateTime?
 
-  event        Event                @relation(fields: [eventId], references: [id])
+  event        Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   department   Department           @relation(fields: [departmentId], references: [id])
   creator      User                 @relation("TaskCreator", fields: [creatorId], references: [id])
   assignee     User?                @relation("TaskAssignee", fields: [assigneeId], references: [id])
@@ -637,7 +637,7 @@ model Venue {
   name      String
   createdAt DateTime @default(now())
 
-  event    Event      @relation(fields: [eventId], references: [id])
+  event    Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   tasks    Task[]
   Feedback Feedback[]
 
@@ -659,7 +659,7 @@ model Zone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  event              Event                 @relation(fields: [eventId], references: [id])
+  event              Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   tasks              Task[]
   assignments        ZoneAssignment[]
   deptMaps           ZoneDepartment[]
@@ -719,7 +719,7 @@ model ZonalDepartmentTemplate {
   name      String
   createdAt DateTime @default(now())
 
-  event Event                 @relation(fields: [eventId], references: [id])
+  event Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   zones ZoneZonalDepartment[]
 
   @@unique([eventId, name])
@@ -779,7 +779,7 @@ model InterDeptRequest {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  event       Event      @relation(fields: [eventId], references: [id])
+  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   fromDept    Department @relation("ReqFromDept", fields: [fromDeptId], references: [id])
   toDept      Department @relation("ReqToDept", fields: [toDeptId], references: [id])
   relatedTask Task?      @relation(fields: [relatedTaskId], references: [id])

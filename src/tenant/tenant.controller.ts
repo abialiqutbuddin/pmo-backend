@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, ForbiddenException, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, ForbiddenException, Req, Get, Delete, Param } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,5 +18,11 @@ export class TenantController {
     findAll(@Req() req: any) {
         if (!req.user?.isSuperAdmin) throw new ForbiddenException('Only Super Admin can list tenants');
         return this.service.findAll();
+    }
+
+    @Delete(':id')
+    delete(@Req() req: any, @Param('id') id: string) {
+        if (!req.user?.isSuperAdmin) throw new ForbiddenException('Only Super Admin can delete tenants');
+        return this.service.delete(id);
     }
 }
