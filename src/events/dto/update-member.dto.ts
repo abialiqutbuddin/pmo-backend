@@ -1,7 +1,6 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { EventRole } from '@prisma/client';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateMemberDto {
-  @IsEnum(EventRole) role!: EventRole;
+  @IsOptional() @IsString() roleId?: string;
   @IsOptional() @IsString() departmentId?: string | null;
 }

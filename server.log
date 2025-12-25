@@ -1,0 +1,149 @@
+
+> backend@0.0.1 start
+> nest start
+
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMailerModule dependencies initialized[39m[38;5;3m +20ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +20ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMediaModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTenantModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mEventsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDepartmentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAttachmentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mFeedbackModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mVenuesModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mZonesModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTasksModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mChatModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "conversation.join" message[39m[38;5;3m +7ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "conversation.leave" message[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "message.send" message[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "attachment.uploaded" message[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "message.react" message[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[WebSocketsController] [39m[32mChatGateway subscribed to the "conversation.read" message[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAppController {/}:[39m[38;5;3m +2ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/login, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/refresh, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/auth/logout, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/users}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/users/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mEventsController {/}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/members, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/members, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/members/:userId, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/members/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mDashboardController {/events/:eventId/dashboard}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/dashboard/summary, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/dashboard/due-soon, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/dashboard/recent, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/dashboard/dept-overview, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/dashboard/my-tasks, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mDepartmentsController {/events/:eventId/departments}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/members, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/members, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/members/:userId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/members/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/assignable, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/members:bulk, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTasksController {/events/:eventId/departments/:departmentId/tasks}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId/status, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId/dependencies, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId/dependencies, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/departments/:departmentId/tasks/:taskId/dependencies, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mFeedbackController {/events/:eventId/feedback}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/feedback, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/feedback, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAttachmentsController {/events/:eventId/attachments}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/attachments/upload, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/attachments/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/attachments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/attachments/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mChatController {/chat}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/events/:eventId/conversations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/messages, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/react, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/read, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/create-task-from-message, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/direct, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations/:conversationId/participants, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations/:conversationId/participants, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations/:conversationId/messages, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/messages/:messageId/readers, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations/:conversationId/participants/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/chat/conversations/:conversationId/participants/:userId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mMediaController {/media}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/media/avatar/its/:itsId, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/media/proxy, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mVenuesController {/events/:eventId/venues}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/venues, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/venues, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mZonesController {/events/:eventId/zones}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/toggle, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/zonal-departments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/zonal-departments, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/zonal-departments/:zdeptId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/zonal-departments/:zdeptId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/zonal-departments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/pocs, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/pocs, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/pocs/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments/:deptId/members, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments/:deptId/members, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments/:deptId/members/:userId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/departments/:deptId/members/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/assignments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/assignments, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/assignments/:userId, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/events/:eventId/zones/:zoneId/assignments/:userId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTenantController {/tenant}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:50 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/tenant, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 98702  - [39m12/23/2025, 10:30:51 PM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +122ms[39m
+[31m[Nest] 98702  - [39m12/23/2025, 10:30:51 PM [31m  ERROR[39m [38;5;3m[NestApplication] [39m[31mError: listen EADDRINUSE: address already in use 0.0.0.0:4000[39m[38;5;3m +10ms[39m
+node:net:1939
+    const ex = new UVExceptionWithHostPort(err, 'listen', address, port);
+               ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+    at listenInCluster (node:net:1996:12)
+    at node:net:2205:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+
+Node.js v23.11.0

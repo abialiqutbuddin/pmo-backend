@@ -35,6 +35,7 @@ export class AttachmentsController {
         @UploadedFile() file: Express.Multer.File,
         @Body('entityType') entityType: string,
         @Body('entityId') entityId: string,
+        @Query('skipAudit') skipAudit: string,
         @CurrentUser() user: any,
     ) {
         return this.attachments.uploadAttachment(
@@ -44,6 +45,7 @@ export class AttachmentsController {
             entityId,
             eventId,
             user.sub,
+            skipAudit === 'true',
         );
     }
 

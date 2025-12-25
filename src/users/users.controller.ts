@@ -8,36 +8,32 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(private readonly users: UsersService) { }
 
   @Post()
   create(@CurrentUser() user: any, @Body() dto: CreateUserDto) {
-    return this.users.create(dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    // create(dto, tenantId, actor)
+    return this.users.create(dto, user.tenantId, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
-// @Post()
-// create(@CurrentUser() user: any | null, @Body() dto: CreateUserDto) {
-//   const actor = { id: user?.sub ?? null, isSuperAdmin: !!user?.isSuperAdmin };
-//   return this.users.create(dto, actor); // service must tolerate null id
-// }
 
   @Get()
   list(@CurrentUser() user: any) {
-    return this.users.list({ isSuperAdmin: user.isSuperAdmin });
+    return this.users.list({ id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
 
   @Get(':id')
   get(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.users.get(id, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.users.get(id, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: any) {
-    return this.users.update(id, dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.users.update(id, dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.users.delete(id, { isSuperAdmin: user.isSuperAdmin });
+    await this.users.delete(id, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
     return { ok: true };
   }
 }

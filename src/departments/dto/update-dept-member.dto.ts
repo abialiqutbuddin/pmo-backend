@@ -1,8 +1,7 @@
 // src/departments/dto/update-dept-member.dto.ts
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { EventRole } from '@prisma/client';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateDeptMemberDto {
-  @IsEnum(EventRole) role!: EventRole; // stays dept-scoped
+  @IsOptional() @IsString() role?: string;
   @IsOptional() @IsString() note?: string;
 }

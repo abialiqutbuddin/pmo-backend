@@ -29,11 +29,12 @@
     "@nestjs/platform-socket.io": "^11.0.0",
     "@nestjs/websockets": "^11.0.0",
     "@prisma/client": "^6.18.0",
+    "@types/bcryptjs": "^2.4.6",
     "argon2": "^0.44.0",
-    
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
-    "file-type": "^21.0.0",
-    
+    "file-type": "^16.5.4",
     "jsonwebtoken": "^9.0.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

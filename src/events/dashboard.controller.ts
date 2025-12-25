@@ -1,40 +1,38 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { EventGuard } from '../common/guards/event.guard';
+// import { EventGuard } from '../common/guards/event.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { ADMIN_ROLES } from '../common/rbac/rules';
-import { EventRole, TaskStatus } from '@prisma/client';
+import { TaskStatus } from '@prisma/client';
+import { PermissionsService } from '../auth/permissions.service';
+import { RequirePermission } from '../common/guards/permissions.guard';
+
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { EventsService } from './events.service';
 
 @Controller('events/:eventId/dashboard')
-@UseGuards(JwtAuthGuard, EventGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DashboardController {
-  constructor(private readonly prisma: PrismaService) {}
 
-  private async scopeDepts(eventId: string, actor: { id: string; isSuperAdmin: boolean }) {
-    if (actor.isSuperAdmin) return { mode: 'all' as const, deptIds: [] as string[] };
-    const memberships = await this.prisma.eventMembership.findMany({
-      where: { eventId, userId: actor.id },
-      select: { role: true, departmentId: true },
-    });
-    // Admins can see entire event
-    const isAdmin = memberships.some((m) => ADMIN_ROLES.has(m.role));
-    if (isAdmin) return { mode: 'all' as const, deptIds: [] };
-    // DEPT_HEAD/DEPT_MEMBER -> restrict to departments they are in
-    const deptIds = Array.from(new Set((memberships.map((m) => m.departmentId).filter(Boolean) as string[])));
-    if (deptIds.length === 0) return { mode: 'none' as const, deptIds: [] };
-    return { mode: 'depts' as const, deptIds };
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissions: PermissionsService,
+    private readonly eventsService: EventsService,
+  ) { }
 
   @Get('summary')
+  @RequirePermission('events', 'read')
   async summary(
     @Param('eventId') eventId: string,
     @CurrentUser() user: any,
   ) {
-    const scope = await this.scopeDepts(eventId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    const scope = await this.eventsService.getAccessibleScope(eventId, user.sub, user.isSuperAdmin, user.isTenantManager);
     const whereBase: any = { eventId, deletedAt: null };
-    if (scope.mode === 'depts') whereBase.departmentId = { in: scope.deptIds };
-    if (scope.mode === 'none') return { total: 0, completed: 0, overdue: 0, inProgress: 0, avgProgressPct: 0 };
+
+    if (!scope.all) {
+      if (scope.departmentIds.length === 0) return { total: 0, completed: 0, overdue: 0, inProgress: 0, avgProgressPct: 0 };
+      whereBase.departmentId = { in: scope.departmentIds };
+    }
 
     const now = new Date();
 
@@ -67,15 +65,20 @@ export class DashboardController {
   }
 
   @Get('due-soon')
+  @RequirePermission('events', 'read')
   async dueSoon(
     @Param('eventId') eventId: string,
     @CurrentUser() user: any,
     @Query('days') days = '7',
   ) {
-    const scope = await this.scopeDepts(eventId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    const scope = await this.eventsService.getAccessibleScope(eventId, user.sub, user.isSuperAdmin, user.isTenantManager);
     const whereBase: any = { eventId, deletedAt: null };
-    if (scope.mode === 'depts') whereBase.departmentId = { in: scope.deptIds };
-    if (scope.mode === 'none') return [];
+
+    if (!scope.all) {
+      if (scope.departmentIds.length === 0) return [];
+      whereBase.departmentId = { in: scope.departmentIds };
+    }
+
     const now = new Date();
     const end = new Date(now.getTime() + Math.max(1, Number(days)) * 24 * 60 * 60 * 1000);
     const rows = await this.prisma.task.findMany({
@@ -103,14 +106,19 @@ export class DashboardController {
   }
 
   @Get('recent')
+  @RequirePermission('events', 'read')
   async recent(
     @Param('eventId') eventId: string,
     @CurrentUser() user: any,
   ) {
-    const scope = await this.scopeDepts(eventId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    const scope = await this.eventsService.getAccessibleScope(eventId, user.sub, user.isSuperAdmin, user.isTenantManager);
     const whereBase: any = { eventId, deletedAt: null };
-    if (scope.mode === 'depts') whereBase.departmentId = { in: scope.deptIds };
-    if (scope.mode === 'none') return [];
+
+    if (!scope.all) {
+      if (scope.departmentIds.length === 0) return [];
+      whereBase.departmentId = { in: scope.departmentIds };
+    }
+
     const rows = await this.prisma.task.findMany({
       where: whereBase,
       orderBy: { updatedAt: 'desc' },
@@ -133,19 +141,23 @@ export class DashboardController {
   }
 
   @Get('dept-overview')
+  @RequirePermission('events', 'read')
   async deptOverview(
     @Param('eventId') eventId: string,
     @CurrentUser() user: any,
   ) {
     // Only admins can see all departments overview
-    const memberships = await this.prisma.eventMembership.findMany({
-      where: { eventId, userId: user.sub },
-      select: { role: true },
-    });
-    const isAdmin = user.isSuperAdmin || memberships.some((m) => ADMIN_ROLES.has(m.role));
-    if (!isAdmin) return [];
+    // Reuse scopeDepts: if mode != 'all', return []? or return stats for observable depts?
+    // The previous logic was "Only admins can see ALL".
+    // Let's allow users to see their own depts overview
+
+    const scope = await this.eventsService.getAccessibleScope(eventId, user.sub, user.isSuperAdmin, user.isTenantManager);
+
+    if (!scope.all && scope.departmentIds.length === 0) return [];
 
     const whereBase: any = { eventId, deletedAt: null };
+    if (!scope.all) whereBase.departmentId = { in: scope.departmentIds };
+
     const totals = await this.prisma.task.groupBy({
       by: ['departmentId'],
       where: whereBase,
@@ -159,6 +171,9 @@ export class DashboardController {
     });
     const doneMap = new Map(done.map((r) => [r.departmentId, r._count._all]));
     const deptIds = totals.map((r) => r.departmentId);
+
+    if (deptIds.length === 0) return [];
+
     const names = await this.prisma.department.findMany({
       where: { id: { in: deptIds } },
       select: { id: true, name: true },
@@ -174,6 +189,7 @@ export class DashboardController {
   }
 
   @Get('my-tasks')
+  @RequirePermission('events', 'read')
   async myTasks(
     @Param('eventId') eventId: string,
     @CurrentUser() user: any,

@@ -8,6 +8,9 @@ export class UpdateUserDto {
   // only super-admin can set this; ignored otherwise
   @IsOptional() @IsBoolean() isSuperAdmin?: boolean;
 
+  // tenant manager flag - can be set by super admin or tenant manager
+  @IsOptional() @IsBoolean() isTenantManager?: boolean;
+
   // allow disabling accounts (super-admin only)
   @IsOptional() @IsBoolean() isDisabled?: boolean;
 

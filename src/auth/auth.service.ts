@@ -27,7 +27,7 @@ function ttlToSeconds(ttl = '900s'): number {
   return u === 's' ? n : u === 'm' ? n * 60 : u === 'h' ? n * 3600 : n * 86400;
 }
 
-const ACCESS_TTL_SEC = ttlToSeconds(process.env.ACCESS_TOKEN_TTL ?? '900s');
+const ACCESS_TTL_SEC = ttlToSeconds(process.env.ACCESS_TOKEN_TTL ?? '1d');
 const REFRESH_TTL_SEC = ttlToSeconds(process.env.REFRESH_TOKEN_TTL ?? '30d');
 
 @Injectable()
@@ -35,12 +35,12 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-  ) {}
+  ) { }
 
   /* ---------- Public API ---------- */
 
-  async login(dto: LoginDto, ua?: string, ip?: string): Promise<TokenPair> {
-    const user = await this.validateUser(dto.email, dto.password);
+  async login(dto: LoginDto, tenantId: string, ua?: string, ip?: string): Promise<TokenPair> {
+    const user = await this.validateUser(dto.email, dto.password, tenantId);
 
     const accessToken = await this.signAccessToken(user);
 
@@ -59,6 +59,18 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  async lookupTenants(email: string): Promise<{ id: string; name: string; slug: string }[]> {
+    const users = await this.prisma.user.findMany({
+      where: { email, isDisabled: false },
+      include: { tenant: true },
+    });
+    return users.map((u) => ({
+      id: u.tenant.id,
+      name: u.tenant.name,
+      slug: u.tenant.slug,
+    }));
   }
 
   async refresh(dto: RefreshDto, ua?: string, ip?: string): Promise<TokenPair> {
@@ -148,8 +160,15 @@ export class AuthService {
 
   /* ---------- Internals ---------- */
 
-  private async validateUser(email: string, password: string): Promise<User> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  private async validateUser(email: string, password: string, tenantId: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email_tenantId: {
+          email,
+          tenantId,
+        },
+      },
+    });
     if (!user || user.isDisabled) throw new UnauthorizedException('Invalid credentials');
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
@@ -161,6 +180,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       isSuperAdmin: !!user.isSuperAdmin,
+      isTenantManager: !!user.isTenantManager,
+      tenantId: user.tenantId, // Include tenantId
     };
 
     // Pass a plain object payload and a numeric expiresIn (seconds)

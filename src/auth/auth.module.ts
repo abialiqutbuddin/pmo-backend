@@ -5,13 +5,14 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
+import { PermissionsService } from './permissions.service';
 
 @Module({
   imports: [
     JwtModule.register({}) // secrets injected in service
   ],
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, JwtAccessStrategy],
-  exports: [AuthService],
+  providers: [AuthService, PrismaService, JwtAccessStrategy, PermissionsService],
+  exports: [AuthService, PermissionsService],
 })
-export class AuthModule {}
+export class AuthModule { }

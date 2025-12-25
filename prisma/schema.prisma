@@ -1,4 +1,4 @@
-	generator client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -7,28 +7,99 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/* =========================
-   Enums (RBAC, FSM, etc.)
-   ========================= */
+/**
+ * =========================
+ * Tenancy
+ * =========================
+ */
 
-enum EventRole {
-  OWNER         // community owner/creator for an event
-  PMO_ADMIN     // full control for event
-  PMO_POC       // PMO operator
-  DEPT_HEAD
-  DEPT_MEMBER
-  GUEST
-  OBSERVER
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users  User[]
+  events Event[]
+  Role   Role[]
 }
+
+/**
+ * =========================
+ * RBAC
+ * =========================
+ */
+
+enum Action {
+  create
+  read
+  update
+  delete
+  manage
+}
+
+model Module {
+  id          String       @id @default(cuid())
+  key         String       @unique // e.g. "events", "tasks"
+  name        String
+  description String?
+  features             Json?                 // List of available features/actions e.g. ["create", "read", "approve_budget"]
+  permissions          Permission[]
+  eventUserPermissions EventUserPermission[]
+}
+
+enum EventRoleScope {
+  EVENT
+  DEPARTMENT
+  BOTH
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  scope       EventRoleScope @default(BOTH)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  permissions Permission[]
+  users       User[]
+  memberships EventMembership[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Permission {
+  id       String @id @default(cuid())
+  roleId   String
+  moduleId String
+  // Storing actions as a JSON array of strings e.g. ["READ", "CREATE"]
+  actions  Json
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id])
+
+  @@unique([roleId, moduleId])
+}
+
+/**
+ * =========================
+ * Enums (RBAC, FSM, etc.)
+ * =========================
+ */
 
 enum ConversationKind {
-  EVENT        // #event-general, #pmo
-  DEPARTMENT   // #dept-*
-  ISSUE        // auto-room bound to an Issue
-  GROUP        // ad-hoc project chat
-  DIRECT       // DM
+  EVENT // #event-general, #pmo
+  DEPARTMENT // #dept-*
+  ISSUE // auto-room bound to an Issue
+  GROUP // ad-hoc project chat
+  DIRECT // DM
 }
-
 
 enum TaskStatus {
   todo
@@ -82,6 +153,9 @@ enum AuditAction {
   ISSUE_CONVERTED_TO_TASK
   CONVERSATION_CREATED
   MESSAGE_DELETED
+  COMMENT_ADDED
+  FILE_UPLOADED
+  MEMBER_TAGGED
 }
 
 enum MediaKind {
@@ -96,83 +170,105 @@ enum StorageProvider {
   s3
 }
 
-/* =========================
-   Users & Identity
-   ========================= */
+/**
+ * =========================
+ * Users & Identity
+ * =========================
+ */
 
 model User {
-  id               String              @id @default(cuid())
-  email            String              @unique
-  fullName         String
-  passwordHash     String
-  createdAt        DateTime            @default(now())
-  isDisabled       Boolean             @default(false)
+  id           String   @id @default(cuid())
+  email        String
+  tenantId     String
+  fullName     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  isDisabled   Boolean  @default(false)
 
   // global admin flag for cross-event features
-  isSuperAdmin     Boolean             @default(false)
+  isSuperAdmin Boolean @default(false)
+
+  // tenant-level manager flag - can manage users and roles within tenant
+  isTenantManager Boolean @default(false)
 
   // new optional fields
-  itsId            String?             @unique @db.VarChar(8)
-  profileImage     String?             // local file path or public URL
-  organization     String?
-  designation      String?
-  phoneNumber      String?
-  
+  itsId        String? @db.VarChar(8)
+  profileImage String? // local file path or public URL
+  organization String?
+  designation  String?
+  phoneNumber  String?
 
   // memberships in events
-  memberships      EventMembership[]                 // regular memberships
-  invitationsSent  EventMembership[] @relation("Inviter") // rows where this user invited others
+  memberships     EventMembership[] // regular memberships
+  invitationsSent EventMembership[] @relation("Inviter") // rows where this user invited others
 
   // chat
-  authoredMsgs     Message[]           @relation("MessageAuthor")
-  reactions        Reaction[]
-  participants     Participant[]
+  authoredMsgs Message[]     @relation("MessageAuthor")
+  reactions    Reaction[]
+  participants Participant[]
 
   // issues & tasks
-  tasksAssigned    Task[]              @relation("TaskAssignee")
-  tasksCreated     Task[]              @relation("TaskCreator")
+  tasksAssigned Task[] @relation("TaskAssignee")
+  tasksCreated  Task[] @relation("TaskCreator")
 
   // notifications & audit
-  notifications    Notification[]
+  notifications     Notification[]
   notificationPrefs NotificationPref[]
-  auditLogs        AuditLog[]          @relation("AuditActor")
-    // refresh sessions
-  sessions         SessionToken[]
+  auditLogs         AuditLog[]         @relation("AuditActor")
+  // refresh sessions
+  sessions          SessionToken[]
 
+  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  roles                Role[]
+  ZoneAssignment       ZoneAssignment[]
+  ZoneDeptAssignment   ZoneDeptAssignment[]
+  eventUserPermissions EventUserPermission[]
+  taskComments         TaskComment[]         @relation("TaskCommentAuthor")
+  commentMentions      TaskCommentMention[]  @relation("MentionedInComments")
+
+  @@unique([email, tenantId])
+  @@unique([itsId, tenantId])
   @@index([createdAt])
-  ZoneAssignment ZoneAssignment[]
-  ZoneDeptAssignment ZoneDeptAssignment[]
 }
 
 model SessionToken {
-  id              String    @id @default(cuid())
-  userId          String
+  id        String    @id @default(cuid())
+  userId    String
   // store only a strong hash of the refresh token
-  tokenHash       String
+  tokenHash String
   // optional device and security metadata
-  userAgent       String?
-  ip              String?
-  issuedAt        DateTime  @default(now())
-  expiresAt       DateTime
-  revokedAt       DateTime?
+  userAgent String?
+  ip        String?
+  issuedAt  DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
 
-  user            User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
-  @@index([userId, expiresAt])
   @@unique([tokenHash])
+  @@index([userId, expiresAt])
 }
 
-/* =========================
-   Event & Department
-   ========================= */
+/**
+ * =========================
+ * Event & Department
+ * =========================
+ */
+
+enum EventStructure {
+  ZONAL
+  HIERARCHICAL
+}
 
 model Event {
-  id            String         @id @default(cuid())
-  name          String
-  startsAt      DateTime?
-  endsAt        DateTime?
-  createdAt     DateTime       @default(now())
-  archivedAt    DateTime?
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  structure  EventStructure @default(ZONAL)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  createdAt  DateTime  @default(now())
+  archivedAt DateTime?
 
   departments   Department[]
   memberships   EventMembership[]
@@ -183,111 +279,151 @@ model Event {
   auditLogs     AuditLog[]
 
   // Zones support
-  zonesEnabled  Boolean        @default(false)
-  zones         Zone[]
+  zonesEnabled Boolean @default(false)
+  zones        Zone[]
+
+  tenant                  Tenant                    @relation(fields: [tenantId], references: [id])
+  NotificationPref        NotificationPref[]
+  Notification            Notification[]
+  AttachmentLink          AttachmentLink[]
+  Venue                   Venue[]
+  ZonalDepartmentTemplate ZonalDepartmentTemplate[]
+  eventUserPermissions    EventUserPermission[]
 
   @@index([createdAt])
-  NotificationPref NotificationPref[]
-  Notification Notification[]
-  AttachmentLink AttachmentLink[]
-  Venue Venue[]
-  ZonalDepartmentTemplate ZonalDepartmentTemplate[]
 }
 
 model Department {
-  id        String   @id @default(cuid())
-  eventId   String
-  name      String
+  id      String @id @default(cuid())
+  eventId String
+  name    String
+  parentId String?
 
-  event     Event    @relation(fields: [eventId], references: [id])
-  members   EventMembership[]
-  tasks     Task[]
-  conversations Conversation[]
-  requestsAsSource InterDeptRequest[] @relation("ReqFromDept")
-  requestsAsTarget InterDeptRequest[] @relation("ReqToDept")
+  event              Event                @relation(fields: [eventId], references: [id])
+  parent             Department?          @relation("DeptHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children           Department[]         @relation("DeptHierarchy")
 
-  @@unique([eventId, name]) // unique dept names within an event
-  @@index([eventId])
+  members            EventMembership[]
+  tasks              Task[]
+  conversations      Conversation[]
+  requestsAsSource   InterDeptRequest[]   @relation("ReqFromDept")
+  requestsAsTarget   InterDeptRequest[]   @relation("ReqToDept")
   ZoneDeptAssignment ZoneDeptAssignment[]
-  ZoneDepartment ZoneDepartment[]
+  ZoneDepartment     ZoneDepartment[]
+
+  @@unique([eventId, name]) // This might need revisiting if sub-depts can have same name as root? Usually allow unique globally per event is safer.
+  @@index([eventId])
+  @@index([parentId])
 }
 
 model EventMembership {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   eventId      String
   userId       String
-  role         EventRole
-  departmentId String?   // optional default/home dept for DEPT_* roles
-  invitedById  String?
-  createdAt    DateTime  @default(now())
+  roleId       String?  // Optional for now to avoid breaking existing data immediately, or make required if we stick to it. Let's make it optional during migration or default? 
+                        // Actually, better to be optional if we have a default "Member" concept not in DB?
+                        // Let's make it optional and if null -> basic access.
 
-  event        Event     @relation(fields: [eventId], references: [id])
-  user         User      @relation(fields: [userId], references: [id])
-  department   Department? @relation(fields: [departmentId], references: [id])
-  invitedBy    User?     @relation("Inviter", fields: [invitedById], references: [id])
+  departmentId String? // optional default/home dept
+  invitedById  String?
+  createdAt    DateTime @default(now())
+
+  event      Event       @relation(fields: [eventId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  invitedBy  User?       @relation("Inviter", fields: [invitedById], references: [id])
+  role       Role?       @relation(fields: [roleId], references: [id])
 
   @@unique([eventId, userId, departmentId])
   @@index([eventId, userId])
-  @@index([role])
+  @@index([roleId])
 }
 
-/* =========================
-   Chat
-   ========================= */
+/**
+ * =========================
+ * Event-Scoped Permissions
+ * =========================
+ * Since permissions are ONLY event-scoped (no tenant-level),
+ * this model is the PRIMARY permission source for the application.
+ */
+
+model EventUserPermission {
+  id       String @id @default(cuid())
+  eventId  String
+  userId   String
+  moduleId String
+  // Actions the user can perform, e.g. ["read", "create", "update", "delete"]
+  actions  Json
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id])
+
+  @@unique([eventId, userId, moduleId])
+  @@index([eventId, userId])
+}
+
+/**
+ * =========================
+ * Chat
+ * =========================
+ */
 
 model Conversation {
-  id            String           @id @default(cuid())
-  eventId       String
-  kind          ConversationKind
-  title         String?
-  departmentId  String?
+  id           String           @id @default(cuid())
+  eventId      String
+  kind         ConversationKind
+  title        String?
+  departmentId String?
 
-  isArchived    Boolean          @default(false)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  isArchived    Boolean  @default(false)
+  isActive      Boolean  @default(true)  // false = read-only (e.g., dept deleted)
+  isSystemGroup Boolean  @default(false) // true = auto-created (event/dept group)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  event         Event            @relation(fields: [eventId], references: [id])
-  department    Department?      @relation(fields: [departmentId], references: [id])
+  event      Event       @relation(fields: [eventId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
 
-  participants  Participant[]
-  messages      Message[]
+  participants Participant[]
+  messages     Message[]
 
   @@index([eventId, kind])
   @@index([departmentId])
 }
 
 model Participant {
-  id              String        @id @default(cuid())
-  conversationId  String
-  userId          String
-  role            String        @default("MEMBER") // OWNER/MEMBER/GUEST for the room
-  joinedAt        DateTime      @default(now())
-  lastReadAt      DateTime?
-  isMuted         Boolean       @default(false)
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String    @default("MEMBER") // OWNER/MEMBER/GUEST for the room
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+  isMuted        Boolean   @default(false)
 
-  conversation    Conversation  @relation(fields: [conversationId], references: [id])
-  user            User          @relation(fields: [userId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
   @@unique([conversationId, userId])
   @@index([userId])
 }
 
 model Message {
-  id              String        @id @default(cuid())
-  conversationId  String
-  authorId        String
-  body            String?
-  parentId        String?       // simple threads
-  editedAt        DateTime?
-  deletedAt       DateTime?
-  createdAt       DateTime      @default(now())
+  id             String    @id @default(cuid())
+  conversationId String
+  authorId       String
+  body           String?
+  parentId       String? // simple threads
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
 
-  conversation    Conversation  @relation(fields: [conversationId], references: [id])
-  author          User          @relation("MessageAuthor", fields: [authorId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  author       User         @relation("MessageAuthor", fields: [authorId], references: [id])
   //attachments     Attachment[]
-  reactions       Reaction[]
-  parent          Message?      @relation("Thread", fields: [parentId], references: [id])
-  replies         Message[]     @relation("Thread")
+  reactions    Reaction[]
+  parent       Message?     @relation("Thread", fields: [parentId], references: [id])
+  replies      Message[]    @relation("Thread")
 
   // Fast room paging + author filters
   @@index([conversationId, createdAt])
@@ -311,49 +447,50 @@ model Message {
 // }
 
 model Reaction {
-  id          String   @id @default(cuid())
-  messageId   String
-  userId      String
-  emoji       String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
 
-  message     Message  @relation(fields: [messageId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
+  message Message @relation(fields: [messageId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 
   @@unique([messageId, userId, emoji])
   @@index([messageId])
 }
 
-/* =========================
-   Issues
-   ========================= */
+/**
+ * =========================
+ * Issues
+ * =========================
+ */
 
 // Feedback submitted for an event (optionally tied to a venue)
 model Feedback {
-  id            String    @id @default(cuid())
-  eventId       String
-  venueId       String?
-  name          String?
-  email         String?
-  phone         String?
-  description   String
-  dateOccurred  DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  eventId      String
+  venueId      String?
+  name         String?
+  email        String?
+  phone        String?
+  description  String
+  dateOccurred DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  event         Event     @relation(fields: [eventId], references: [id])
-  venue         Venue?    @relation(fields: [venueId], references: [id])
+  event Event  @relation(fields: [eventId], references: [id])
+  venue Venue? @relation(fields: [venueId], references: [id])
 
   @@index([eventId, dateOccurred])
   @@index([venueId])
 }
 
-
 model Attachment {
   id           String          @id @default(cuid())
   eventId      String
-  entityType   String          // "Task", "Comment", etc.
-  entityId     String          // ID of that entity
+  entityType   String // "Task", "Comment", etc.
+  entityId     String // ID of that entity
   objectKey    String          @unique
   originalName String
   mimeType     String
@@ -364,24 +501,24 @@ model Attachment {
   createdAt    DateTime        @default(now())
   deletedAt    DateTime?
 
-  links        AttachmentLink[]
+  links AttachmentLink[]
 
   @@index([checksum])
   @@index([eventId, entityType, entityId])
 }
 
 model AttachmentLink {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   attachmentId String
-  entityType   String     // duplicate of Attachment’s owner if you multi-link to other entities
+  entityType   String // duplicate of Attachment’s owner if you multi-link to other entities
   entityId     String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
-  attachment   Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  Event      Event[]
 
-  @@unique([entityType, entityId, attachmentId])   // no duplicate links
+  @@unique([entityType, entityId, attachmentId]) // no duplicate links
   @@index([entityType, entityId])
-  Event Event[]
 }
 
 // model IssueAttachment {
@@ -397,44 +534,49 @@ model AttachmentLink {
 //   @@index([issueId])
 // }
 
-/* =========================
-   Tasks & Dependencies
-   ========================= */
+/**
+ * =========================
+ * Tasks & Dependencies
+ * =========================
+ */
 
 model Task {
-  id           String      @id @default(cuid())
-  eventId      String
-  departmentId String
-  creatorId    String
-  assigneeId   String?
-  venueId      String?
-  zoneId       String?
+  id             String     @id @default(cuid())
+  eventId        String
+  departmentId   String
+  creatorId      String
+  assigneeId     String?
+  venueId        String?
+  zoneId         String?
   zonalDeptRowId String? // references ZoneZonalDepartment.id
-  type         TaskType    @default(new_task)
-  title        String
-  description  String?
-  priority     Int          @default(3) // lower = higher priority, configurable
-  status       TaskStatus   @default(todo)
-  progressPct  Int          @default(0)
-  startAt      DateTime?
-  dueAt        DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  completedAt  DateTime?
-  deletedAt    DateTime?
+  type           TaskType   @default(new_task)
+  title          String
+  description    String?
+  priority       Int        @default(3) // lower = higher priority, configurable
+  status         TaskStatus @default(todo)
+  progressPct    Int        @default(0)
+  startAt        DateTime?
+  dueAt          DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completedAt    DateTime?
+  deletedAt      DateTime?
 
-  event        Event        @relation(fields: [eventId], references: [id])
-  department   Department   @relation(fields: [departmentId], references: [id])
-  creator      User         @relation("TaskCreator", fields: [creatorId], references: [id])
-  assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  venue        Venue?       @relation(fields: [venueId], references: [id])
-  zone         Zone?        @relation(fields: [zoneId], references: [id])
-  zonalDeptRow  ZoneZonalDepartment? @relation(fields: [zonalDeptRowId], references: [id])
+  event        Event                @relation(fields: [eventId], references: [id])
+  department   Department           @relation(fields: [departmentId], references: [id])
+  creator      User                 @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee     User?                @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  venue        Venue?               @relation(fields: [venueId], references: [id])
+  zone         Zone?                @relation(fields: [zoneId], references: [id])
+  zonalDeptRow ZoneZonalDepartment? @relation(fields: [zonalDeptRowId], references: [id])
 
   //attachments  TaskAttachment[]
-  blockers     TaskDependency[] @relation("Blockers")
-  dependents   TaskDependency[] @relation("Dependents")
+  blockedBy         TaskDependency[]   @relation("BlockedBy")
+  blocking          TaskDependency[]   @relation("Blocking")
   //sourceIssue removed
+  InterDeptRequest InterDeptRequest[]
+  //Issue Issue[] @relation("IssueTasks")
+  comments         TaskComment[]
 
   @@index([eventId, departmentId])
   @@index([status, dueAt])
@@ -442,8 +584,51 @@ model Task {
   @@index([venueId])
   @@index([zoneId])
   @@index([zonalDeptRowId])
-  InterDeptRequest InterDeptRequest[]
-  //Issue Issue[] @relation("IssueTasks")
+}
+
+/**
+ * =========================
+ * Task Comments
+ * =========================
+ */
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User                    @relation("TaskCommentAuthor", fields: [userId], references: [id])
+  attachments TaskCommentAttachment[]
+  mentions    TaskCommentMention[]
+
+  @@index([taskId, createdAt])
+}
+
+model TaskCommentAttachment {
+  id        String   @id @default(cuid())
+  commentId String
+  fileName  String
+  filePath  String
+  mimeType  String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+}
+
+model TaskCommentMention {
+  id              String @id @default(cuid())
+  commentId       String
+  mentionedUserId String
+
+  comment       TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  mentionedUser User        @relation("MentionedInComments", fields: [mentionedUserId], references: [id])
+
+  @@unique([commentId, mentionedUserId])
 }
 
 model Venue {
@@ -452,17 +637,19 @@ model Venue {
   name      String
   createdAt DateTime @default(now())
 
-  event     Event    @relation(fields: [eventId], references: [id])
-  tasks     Task[]
+  event    Event      @relation(fields: [eventId], references: [id])
+  tasks    Task[]
+  Feedback Feedback[]
 
   @@unique([eventId, name])
   @@index([eventId])
-  Feedback Feedback[]
 }
 
-/* =========================
-   Zones
-   ========================= */
+/**
+ * =========================
+ * Zones
+ * =========================
+ */
 
 model Zone {
   id        String   @id @default(cuid())
@@ -472,25 +659,25 @@ model Zone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  event     Event    @relation(fields: [eventId], references: [id])
-  tasks     Task[]
-  assignments ZoneAssignment[]
-  deptMaps       ZoneDepartment[]
-  zdeptMaps      ZoneZonalDepartment[]
+  event              Event                 @relation(fields: [eventId], references: [id])
+  tasks              Task[]
+  assignments        ZoneAssignment[]
+  deptMaps           ZoneDepartment[]
+  zdeptMaps          ZoneZonalDepartment[]
+  ZoneDeptAssignment ZoneDeptAssignment[]
 
   @@unique([eventId, name])
   @@index([eventId])
-  ZoneDeptAssignment ZoneDeptAssignment[]
 }
 
 model ZoneAssignment {
-  id       String  @id @default(cuid())
-  zoneId   String
-  userId   String
-  role     String  // e.g., POC, MEMBER
+  id     String @id @default(cuid())
+  zoneId String
+  userId String
+  role   String // e.g., POC, MEMBER
 
-  zone     Zone    @relation(fields: [zoneId], references: [id])
-  user     User    @relation(fields: [userId], references: [id])
+  zone Zone @relation(fields: [zoneId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([zoneId, userId])
   @@index([userId])
@@ -503,9 +690,9 @@ model ZoneDeptAssignment {
   userId       String
   role         String // e.g., DEPT_HEAD, DEPT_MEMBER
 
-  zone         Zone       @relation(fields: [zoneId], references: [id])
-  department   Department @relation(fields: [departmentId], references: [id])
-  user         User       @relation(fields: [userId], references: [id])
+  zone       Zone       @relation(fields: [zoneId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
 
   @@unique([zoneId, departmentId, userId])
   @@index([userId])
@@ -518,8 +705,8 @@ model ZoneDepartment {
   zoneId       String
   departmentId String
 
-  zone         Zone       @relation(fields: [zoneId], references: [id])
-  department   Department @relation(fields: [departmentId], references: [id])
+  zone       Zone       @relation(fields: [zoneId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
 
   @@unique([zoneId, departmentId])
   @@index([zoneId])
@@ -532,8 +719,8 @@ model ZonalDepartmentTemplate {
   name      String
   createdAt DateTime @default(now())
 
-  event     Event    @relation(fields: [eventId], references: [id])
-  zones     ZoneZonalDepartment[]
+  event Event                 @relation(fields: [eventId], references: [id])
+  zones ZoneZonalDepartment[]
 
   @@unique([eventId, name])
   @@index([eventId])
@@ -541,16 +728,16 @@ model ZonalDepartmentTemplate {
 
 // Mapping of a zonal department template into a specific zone
 model ZoneZonalDepartment {
-  id       String   @id @default(cuid())
-  zoneId   String
-  zdeptId  String
+  id      String @id @default(cuid())
+  zoneId  String
+  zdeptId String
 
-  zone     Zone     @relation(fields: [zoneId], references: [id])
-  zdept    ZonalDepartmentTemplate @relation(fields: [zdeptId], references: [id])
+  zone  Zone                    @relation(fields: [zoneId], references: [id])
+  zdept ZonalDepartmentTemplate @relation(fields: [zdeptId], references: [id], map: "ZoneZonalDepartment_zdeptId_fkey_v2")
+  Task  Task[]
 
   @@unique([zoneId, zdeptId])
   @@index([zoneId])
-  Task Task[]
 }
 
 // model TaskAttachment {
@@ -566,112 +753,114 @@ model ZoneZonalDepartment {
 //   @@index([taskId])
 // }
 
+
 model TaskDependency {
-  id           String         @id @default(cuid())
-  upstreamId   String
-  downstreamId String
-  depType      DependencyType @default(finish_to_start)
-  createdAt    DateTime       @default(now())
+  blockedId   String @map("downstreamId")
+  blocked     Task   @relation("BlockedBy", fields: [blockedId], references: [id])
+  blockerId   String @map("upstreamId")
+  blocker     Task   @relation("Blocking", fields: [blockerId], references: [id])
+  createdAt   DateTime @default(now())
 
-  upstream     Task           @relation("Blockers",   fields: [upstreamId],   references: [id])
-  downstream   Task           @relation("Dependents", fields: [downstreamId], references: [id])
-
-  @@unique([upstreamId, downstreamId])
-  @@index([downstreamId])
+  @@id([blockedId, blockerId])
 }
 
 model InterDeptRequest {
-  id           String          @id @default(cuid())
-  eventId      String
-  fromDeptId   String
-  toDeptId     String
-  relatedTaskId String?
-  note         String?
-  status       InterDeptStatus @default(requested)
-  requestedBy  String          // userId
+  id             String          @id @default(cuid())
+  eventId        String
+  fromDeptId     String
+  toDeptId       String
+  relatedTaskId  String?
+  note           String?
+  status         InterDeptStatus @default(requested)
+  requestedBy    String // userId
   acknowledgedBy String?
-  rejectedBy   String?
-  fulfilledBy  String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  rejectedBy     String?
+  fulfilledBy    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  event        Event           @relation(fields: [eventId], references: [id])
-  fromDept     Department      @relation("ReqFromDept", fields: [fromDeptId], references: [id])
-  toDept       Department      @relation("ReqToDept", fields: [toDeptId], references: [id])
-  relatedTask  Task?           @relation(fields: [relatedTaskId], references: [id])
+  event       Event      @relation(fields: [eventId], references: [id])
+  fromDept    Department @relation("ReqFromDept", fields: [fromDeptId], references: [id])
+  toDept      Department @relation("ReqToDept", fields: [toDeptId], references: [id])
+  relatedTask Task?      @relation(fields: [relatedTaskId], references: [id])
 
   @@index([eventId, status])
   @@index([fromDeptId])
   @@index([toDeptId])
 }
 
-/* =========================
-   Notifications
-   ========================= */
+/**
+ * =========================
+ * Notifications
+ * =========================
+ */
 
 model Notification {
-  id          String     @id @default(cuid())
-  userId      String
-  eventId     String?
-  kind        String     // e.g., TASK_ASSIGNED, TASK_OVERDUE, MENTION, INTERDEPT_ACK
-  title       String
-  body        String?
-  link        String?    // deep link (task/issue/chat)
-  readAt      DateTime?
-  createdAt   DateTime   @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  eventId   String?
+  kind      String // e.g., TASK_ASSIGNED, TASK_OVERDUE, MENTION, INTERDEPT_ACK
+  title     String
+  body      String?
+  link      String? // deep link (task/issue/chat)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
 
-  user        User       @relation(fields: [userId], references: [id])
-  event       Event?     @relation(fields: [eventId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
 
   @@index([userId, createdAt])
   @@index([eventId, createdAt])
 }
 
 model NotificationPref {
-  id          String   @id @default(cuid())
-  userId      String
-  eventId     String?
-  kind        String
-  muted       Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String?
+  kind      String
+  muted     Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id])
-  event       Event?   @relation(fields: [eventId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
 
   // ✅ channels live here
-  channels    NotificationPrefChannel[]
+  channels NotificationPrefChannel[]
 
   @@unique([userId, eventId, kind])
 }
 
 model NotificationPrefChannel {
-  id        String              @id @default(cuid())
-  prefId    String
-  channel   NotificationChannel
+  id      String              @id @default(cuid())
+  prefId  String
+  channel NotificationChannel
 
-  pref      NotificationPref    @relation(fields: [prefId], references: [id])
+  pref NotificationPref @relation(fields: [prefId], references: [id])
 
   // one row per (pref, channel)
   @@unique([prefId, channel])
   @@index([channel])
 }
 
-/* =========================
-   Audit & Rate Limits
-   ========================= */
+/**
+ * =========================
+ * Audit & Rate Limits
+ * =========================
+ */
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  eventId     String?
-  actorId     String?
-  action      AuditAction
-  entityType  String      // "Task" | "Issue" | "Conversation" | ...
-  entityId    String?
-  diffJson    Json?
-  createdAt   DateTime    @default(now())
+  id         String      @id @default(cuid())
+  eventId    String?
+  actorId    String?
+  action     AuditAction
+  entityType String // "Task" | "Issue" | "Conversation" | ...
+  entityId   String?
+  diffJson   Json?
+  description String?
+  createdAt  DateTime    @default(now())
 
-  event       Event?      @relation(fields: [eventId], references: [id])
-  actor       User?       @relation("AuditActor", fields: [actorId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
+  actor User?  @relation("AuditActor", fields: [actorId], references: [id])
 
   @@index([eventId, createdAt])
   @@index([actorId, createdAt])
@@ -682,11 +871,11 @@ model AuditLog {
  * Your service layer increments/checks rows with (userId, key) per windowStart.
  */
 model RateLimitCounter {
-  id           String    @id @default(cuid())
-  userId       String
-  key          String    // e.g., "chat_to_task", "issue_create"
-  windowStart  DateTime
-  count        Int       @default(0)
+  id          String   @id @default(cuid())
+  userId      String
+  key         String // e.g., "chat_to_task", "issue_create"
+  windowStart DateTime
+  count       Int      @default(0)
 
   @@unique([userId, key, windowStart])
   @@index([key, windowStart])

@@ -1,7 +1,8 @@
 // src/attachments/attachments.service.ts
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { fileTypeFromBuffer } from 'file-type';
+import { AuditService } from '../audit/audit.service';
+import { fromBuffer } from 'file-type';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { createHash, randomUUID } from 'crypto';
@@ -13,7 +14,10 @@ export class AttachmentsService {
   private root = process.env.ATTACH_ROOT || './uploads';
   private maxBytes = (parseInt(process.env.MAX_UPLOAD_MB || '50', 10)) * 1024 * 1024;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) { }
 
   /**
    * Writes file to disk and creates an Attachment row.
@@ -26,12 +30,13 @@ export class AttachmentsService {
     entityId: string,
     eventId: string,     // make this required; your routes already have :eventId
     userId: string,
+    skipAudit: boolean = false,
   ) {
     if (!buffer?.length) throw new BadRequestException('Empty file');
     if (buffer.length > this.maxBytes) throw new BadRequestException('File exceeds upload limit');
     if (!entityType || !entityId || !eventId) throw new BadRequestException('Missing required fields');
 
-    const ft = await fileTypeFromBuffer(buffer);
+    const ft = await fromBuffer(buffer);
     const mimeType = ft?.mime || 'application/octet-stream';
     const checksum = createHash('sha256').update(buffer).digest('hex');
     const cleanName = (originalName || 'file').replace(/\s+/g, '-').toLowerCase();
@@ -75,7 +80,7 @@ export class AttachmentsService {
           provider: StorageProvider.filesystem,
           createdBy: userId,
         },
-        select: { id: true, objectKey: true, mimeType: true },
+        select: { id: true, objectKey: true, mimeType: true, createdBy: true },
       });
 
       // Optional: also create a link if you plan to support multi-link later
@@ -89,10 +94,23 @@ export class AttachmentsService {
         },
       }).catch(() => { /* ignore if you don’t want links or unique conflicts */ });
 
+      // Log activity
+      if (!skipAudit) {
+        await this.audit.log(
+          userId,
+          eventId,
+          'FILE_UPLOADED' as any,
+          entityType,
+          entityId,
+          { attachmentId: id, objectKey },
+          `uploaded file "${originalName}"`
+        ).catch(err => console.error('Audit log failed', err));
+      }
+
       return att;
     } catch (e) {
       // DB failed: remove the file we wrote
-      await fs.rm(diskPath, { force: true }).catch(() => {});
+      await fs.rm(diskPath, { force: true }).catch(() => { });
       // rethrow with a cleaner message
       if ((e as any)?.code === 'P2002') {
         throw new BadRequestException('Duplicate attachment key');
@@ -117,30 +135,40 @@ export class AttachmentsService {
    * List attachments for an entity within an event.
    * Matches your GET /events/:eventId/attachments?entityType=Task&entityId=...
    */
-async listForEntity(input: { eventId: string; entityType: string; entityId: string }) {
-  const { eventId, entityType, entityId } = input;
+  async listForEntity(input: { eventId: string; entityType: string; entityId: string }) {
+    const { eventId, entityType, entityId } = input;
 
-  return this.prisma.attachment.findMany({
-    where: {
-      links: {
-        some: {
-          //eventId,
-          entityType,
-          entityId,
-        },
+    return this.prisma.attachment.findMany({
+      where: {
+        eventId,
+        OR: [
+          {
+            entityType,
+            entityId,
+          },
+          {
+            links: {
+              some: {
+                entityType,
+                entityId,
+              },
+            },
+          },
+        ],
+        deletedAt: null,
       },
-    },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      size: true,         // ensure this matches your DB column name
-      createdAt: true,
-      objectKey: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-}
+      select: {
+        id: true,
+        originalName: true,
+        mimeType: true,
+        size: true,
+        createdAt: true,
+        objectKey: true,
+        createdBy: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
   /**
    * Soft delete + keep file (or set `alsoRemoveFile = true` to unlink).
@@ -153,7 +181,7 @@ async listForEntity(input: { eventId: string; entityType: string; entityId: stri
     });
     if (alsoRemoveFile) {
       const diskPath = path.join(this.root, att.objectKey);
-      await fs.rm(diskPath, { force: true }).catch(() => {});
+      await fs.rm(diskPath, { force: true }).catch(() => { });
     }
     return { ok: true };
   }

@@ -1,47 +1,49 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ZonesService } from './zones.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { EventGuard } from '../common/guards/event.guard';
+// import { EventGuard } from '../common/guards/event.guard';
 import { CreateZoneDto } from './dto/create-zone.dto';
-import { RoleGuard } from '../common/guards/role.guard';
-import { RequireEventRoles } from '../common/decorators/require-event-roles.decorator';
-import { EventRole } from '@prisma/client';
+// import { RoleGuard } from '../common/guards/role.guard';
+// import { RequireEventRoles } from '../common/decorators/require-event-roles.decorator';
+import { RequirePermission } from '../common/guards/permissions.guard';
 
 @Controller('events/:eventId/zones')
-@UseGuards(JwtAuthGuard, EventGuard, RoleGuard)
+@UseGuards(JwtAuthGuard)
 export class ZonesController {
-  constructor(private readonly zones: ZonesService) {}
+  constructor(private readonly zones: ZonesService) { }
 
   @Get()
+  @RequirePermission('events', 'read')
   list(@Param('eventId') eventId: string) {
     return this.zones.list(eventId);
   }
 
   @Post()
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   create(@Param('eventId') eventId: string, @Body() dto: CreateZoneDto) {
     return this.zones.create(eventId, dto);
   }
 
   @Patch(':zoneId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   update(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string, @Body() body: { name?: string; enabled?: boolean }) {
     return this.zones.update(eventId, zoneId, body || {});
   }
 
   @Patch('/toggle')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   toggle(@Param('eventId') eventId: string, @Query('enabled') enabled: string) {
     return this.zones.setZonesEnabled(eventId, enabled !== 'false');
   }
 
   @Get(':zoneId/departments')
+  @RequirePermission('events', 'read')
   listZoneDepartments(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string) {
     return this.zones.listZoneDepartments(eventId, zoneId);
   }
 
   @Post(':zoneId/departments')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   setZoneDepartments(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -52,42 +54,45 @@ export class ZonesController {
 
   // Zonal department templates (apply to all zones)
   @Get('zonal-departments')
+  @RequirePermission('events', 'read')
   listZonalTemplates(@Param('eventId') eventId: string) {
     return this.zones.listZonalTemplates(eventId);
   }
 
   @Post('zonal-departments')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   createZonalTemplate(@Param('eventId') eventId: string, @Body() body: { name: string }) {
     return this.zones.createZonalTemplate(eventId, String(body?.name || ''));
   }
 
   @Patch('zonal-departments/:zdeptId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   updateZonalTemplate(@Param('eventId') eventId: string, @Param('zdeptId') zdeptId: string, @Body() body: { name: string }) {
     return this.zones.updateZonalTemplate(eventId, zdeptId, String(body?.name || ''));
   }
 
   @Delete('zonal-departments/:zdeptId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   removeZonalTemplate(@Param('eventId') eventId: string, @Param('zdeptId') zdeptId: string) {
     return this.zones.removeZonalTemplate(eventId, zdeptId);
   }
 
   // Per-zone mapped zonal departments
   @Get(':zoneId/zonal-departments')
+  @RequirePermission('events', 'read')
   listZoneZonalDepts(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string) {
     return this.zones.listZoneZonalDepts(eventId, zoneId);
   }
 
   // ---- Zone POCs ----
   @Get(':zoneId/pocs')
+  @RequirePermission('events', 'read')
   listPOCs(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string) {
     return this.zones.listPOCs(eventId, zoneId);
   }
 
   @Post(':zoneId/pocs')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   addPOC(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -97,13 +102,14 @@ export class ZonesController {
   }
 
   @Delete(':zoneId/pocs/:userId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   removePOC(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string, @Param('userId') userId: string) {
     return this.zones.removePOC(eventId, zoneId, userId);
   }
 
   // ---- Zone-department members (heads/members in a zone) ----
   @Get(':zoneId/departments/:deptId/members')
+  @RequirePermission('events', 'read')
   listZoneDeptMembers(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -113,7 +119,7 @@ export class ZonesController {
   }
 
   @Post(':zoneId/departments/:deptId/members')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   addZoneDeptMember(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -124,7 +130,7 @@ export class ZonesController {
   }
 
   @Patch(':zoneId/departments/:deptId/members/:userId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   updateZoneDeptMember(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -136,7 +142,7 @@ export class ZonesController {
   }
 
   @Delete(':zoneId/departments/:deptId/members/:userId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   removeZoneDeptMember(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -148,12 +154,13 @@ export class ZonesController {
 
   // ---- Generic zone assignments (HEAD/POC/MEMBER) ----
   @Get(':zoneId/assignments')
+  @RequirePermission('events', 'read')
   listAssignments(@Param('eventId') eventId: string, @Param('zoneId') zoneId: string) {
     return this.zones.listAssignments(eventId, zoneId);
   }
 
   @Post(':zoneId/assignments')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   addAssignment(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -163,7 +170,7 @@ export class ZonesController {
   }
 
   @Patch(':zoneId/assignments/:userId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   updateAssignment(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,
@@ -174,7 +181,7 @@ export class ZonesController {
   }
 
   @Delete(':zoneId/assignments/:userId')
-  @RequireEventRoles(EventRole.OWNER, EventRole.PMO_ADMIN)
+  @RequirePermission('events', 'manage')
   removeAssignment(
     @Param('eventId') eventId: string,
     @Param('zoneId') zoneId: string,

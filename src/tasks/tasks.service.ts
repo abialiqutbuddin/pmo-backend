@@ -3,60 +3,71 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
-import { ADMIN_ROLES, canCreateInDept, canDeleteTask, canUpdateTask, canManageInDept } from '../common/rbac/rules';
 import { MailerService } from '../mail/mailer.service';
-import { DependencyType, EventRole, TaskStatus } from '@prisma/client';
+import { DependencyType, TaskStatus } from '@prisma/client';
 import { AddDependencyDto } from './dto/dependencies/add-dependency.dto';
 import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
+import { EventsService } from '../events/events.service';
+import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
-type Actor = { userId: string; isSuperAdmin: boolean };
+type Actor = { userId: string; isSuperAdmin: boolean; isTenantManager: boolean };
 
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
-  constructor(private readonly prisma: PrismaService, private readonly mailer: MailerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailer: MailerService,
+    private readonly eventsService: EventsService,
+    private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
-  private async getActorRole(eventId: string, departmentId: string, actor: Actor) {
-    if (actor.isSuperAdmin) return { role: 'SUPER' as const, sameDept: true };
-    const memberships = await this.prisma.eventMembership.findMany({
-      where: { eventId, userId: actor.userId },
-      select: { role: true, departmentId: true },
-    });
-    if (!memberships.length) throw new NotFoundException(); // hide event
-    // derive highest privilege + sameDept flag
-    const hasAdmin = memberships.some(m => ADMIN_ROLES.has(m.role));
-    const sameDept = memberships.some(m => m.departmentId === departmentId);
-    const topRole: EventRole = hasAdmin
-      ? EventRole.PMO_ADMIN
-      : (memberships.find(m => m.departmentId === departmentId)?.role ??
-         memberships[0].role);
-    return { role: topRole, sameDept };
+  // Helper to ensure basic access if needed, or rely on Controllers
+  private async checkEventAccess(eventId: string, userId: string) {
+    // Basic check replaced by scope check in list, but kept for other methods
+    const mem = await this.prisma.eventMembership.findFirst({ where: { eventId, userId } });
+    if (!mem) throw new NotFoundException('Event not found or access denied');
+    return mem;
   }
 
   /* ---------- List (with pagination) ---------- */
   async list(
     eventId: string,
-    departmentId: string,
+    departmentId: string | undefined, // Valid to be undefined/null
     actor: Actor,
     opts: { cursor?: string; take?: number; assigneeId?: string; zoneId?: string; zonalDeptRowId?: string } = {},
   ) {
-    // must be at least a member of the event; also figure out role and whether it's the same department
-    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
+    // 1. Determine Scope
+    const scope = await this.eventsService.getAccessibleScope(eventId, actor.userId, actor.isSuperAdmin, actor.isTenantManager);
+
+    // 2. Build Where Clause
+    const where: any = { eventId, deletedAt: null as Date | null };
+
+    if (!scope.all) {
+      if (!scope.departmentIds.length) return []; // No access to any department
+
+      if (!scope.departmentIds.length) return []; // No access to any department
+
+      if (departmentId) {
+        // User requested specific dept. Check if allowed.
+        if (!scope.departmentIds.includes(departmentId)) return [];
+        where.departmentId = departmentId;
+      } else {
+        // User requested "all", but is restricted to specific depts
+        where.departmentId = { in: scope.departmentIds };
+      }
+    } else {
+      // Full access. Respect filter if provided.
+      if (departmentId) where.departmentId = departmentId;
+    }
 
     const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
-    const where: any = { eventId, departmentId, deletedAt: null as Date | null };
+
     if (opts.zoneId) where.zoneId = opts.zoneId;
     if (opts.zonalDeptRowId) where.zonalDeptRowId = opts.zonalDeptRowId;
-
-    // Enforce visibility rules:
-    // - SUPER/ADMIN/DEPT_HEAD can see all; if assigneeId provided, filter by it
-    // - DEPT_MEMBER only sees tasks assigned to themselves (previous logic)
-    if (role === 'SUPER' || ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD) {
-      if (opts.assigneeId) where.assigneeId = opts.assigneeId;
-    } else if ((role as EventRole) === EventRole.DEPT_MEMBER) {
-      // restrict to own assignments regardless of dept, matching prior behavior
-      where.assigneeId = actor.userId;
-    }
+    if (opts.assigneeId) where.assigneeId = opts.assigneeId;
 
     const tasks = await this.prisma.task.findMany({
       where,
@@ -86,90 +97,115 @@ export class TasksService {
   }
 
   /* ---------- Create ---------- */
-  async create(eventId: string, departmentId: string, actor: Actor, dto: CreateTaskDto) {
-    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
-    if (role !== 'SUPER' && !canCreateInDept(role as EventRole)) {
-      throw new ForbiddenException('Insufficient role to create task');
-    }
-    if (role !== 'SUPER' && (role as EventRole) === EventRole.DEPT_MEMBER && !sameDept) {
-      throw new ForbiddenException('Not a member of this department');
-    }
+  async searchEventTasks(eventId: string, query: string, limit = 20) {
+    if (!query?.trim()) return [];
+    return this.prisma.task.findMany({
+      where: {
+        eventId,
+        deletedAt: null,
+        title: { contains: query.trim() },
+      },
+      take: limit,
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        priority: true,
+        assignee: { select: { id: true, fullName: true, profileImage: true } },
+      },
+    });
+  }
 
+  async create(eventId: string, departmentId: string, actor: Actor, dto: CreateTaskDto) {
     const data: any = {
       eventId,
       departmentId,
       creatorId: actor.userId,
       title: dto.title,
       description: dto.description,
-      priority: dto.priority ?? 3,
-      type: (dto as any).type ?? undefined,
-      startAt: dto.startAt ? new Date(dto.startAt) : undefined,
-      dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+      priority: dto.priority || 3,
+      status: dto.status || TaskStatus.todo,
+      type: dto.type,
+      startAt: dto.startAt ? new Date(dto.startAt) : null,
+      dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
       assigneeId: dto.assigneeId,
-      zoneId: dto.zoneId,
-      zonalDeptRowId: (dto as any).zonalDeptRowId,
       venueId: dto.venueId,
+      zoneId: dto.zoneId,
+      zonalDeptRowId: dto.zonalDeptRowId,
     };
-    const created = await this.prisma.task.create({
-      data,
-      select: { id: true, title: true, status: true, priority: true, assigneeId: true, createdAt: true },
-    });
+
+    const task = await this.prisma.task.create({ data });
+
+    // 🔍 AUDIT LOG
+    this.auditService.log(
+      actor.userId,
+      eventId,
+      'TASK_CREATED',
+      'Task',
+      task.id,
+      { title: task.title, status: task.status },
+      `Created task "${task.title}"`
+    );
+
+    // Notify assignee if generic task
+    if (task.assigneeId && task.assigneeId !== actor.userId) {
+      // ... logic to send notification ...
+      // We can use a unified notifications service later
+    }
+
     // Notify assignee (if any) in background
-    if (created.assigneeId) {
+    if (task.assigneeId) {
       // Enqueue email job
       const [assignee, dept, ev, actorUser] = await Promise.all([
-        this.prisma.user.findUnique({ where: { id: created.assigneeId! }, select: { email: true, fullName: true } }),
+        this.prisma.user.findUnique({ where: { id: task.assigneeId! }, select: { email: true, fullName: true } }),
         this.prisma.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
         this.prisma.event.findUnique({ where: { id: eventId }, select: { name: true } }),
         this.prisma.user.findUnique({ where: { id: actor.userId }, select: { fullName: true } }),
       ]);
-      if (assignee?.email) {
-        setImmediate(async () => {
-          try {
-            await this.mailer.sendTaskAssignedEmail({
-              to: assignee.email,
-              assigneeName: assignee.fullName || undefined,
-              taskTitle: created.title,
-              departmentName: dept?.name,
-              eventName: ev?.name,
-              actorName: actorUser?.fullName || undefined,
-            });
-          } catch (e: any) {
-            this.logger.warn(`Email notify (create) failed: ${e?.message || e}`);
-          }
+
+      if (assignee && dept && ev && assignee.email) {
+        this.mailer.sendTaskAssignedEmail({
+          to: assignee.email,
+          assigneeName: assignee.fullName || undefined,
+          taskTitle: task.title,
+          actorName: actorUser?.fullName || 'Someone',
+          departmentName: dept.name,
+          eventName: ev.name,
         });
+
+        // In-app notification
+        try {
+          await this.notificationsService.create({
+            userId: task.assigneeId!,
+            eventId,
+            kind: 'TASK_ASSIGNED',
+            title: 'Task Assigned',
+            body: `You were assigned to "${task.title}"`,
+            link: `/events/${eventId}/tasks/${task.id}`,
+          });
+        } catch (e: any) {
+          this.logger.warn(`In-app notification (create assign) failed: ${e?.message || e}`);
+        }
       }
     }
-    return created;
+
+    return task;
   }
 
   /* ---------- Get ---------- */
   async get(eventId: string, departmentId: string, taskId: string, actor: Actor) {
-    const { role } = await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, eventId, departmentId, deletedAt: null },
     });
     if (!task) throw new NotFoundException();
-    // Visibility for single task: members can only view their assigned or created tasks
-    if (!(role === 'SUPER' || ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD)) {
-      if ((role as EventRole) === EventRole.DEPT_MEMBER) {
-        if (task.assigneeId !== actor.userId && task.creatorId !== actor.userId) {
-          throw new ForbiddenException('Cannot view this task');
-        }
-      }
-    }
     return task;
   }
 
   /* ---------- Update ---------- */
   async update(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: UpdateTaskDto) {
-    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({ where: { id: taskId, eventId, departmentId, deletedAt: null } });
     if (!task) throw new NotFoundException();
-
-    if (role !== 'SUPER' && !canUpdateTask(role as EventRole, task, actor.userId, sameDept)) {
-      throw new ForbiddenException('Cannot update this task');
-    }
 
     const data: any = {
       title: dto.title,
@@ -189,7 +225,19 @@ export class TasksService {
       data,
       select: { id: true, title: true, status: true, priority: true, assigneeId: true, updatedAt: true },
     });
-    // If assignee changed and not null, notify new assignee (background)
+
+    // 🔍 AUDIT LOG
+    this.auditService.log(
+      actor.userId,
+      eventId,
+      'TASK_UPDATED',
+      'Task',
+      task.id,
+      data, // Log the changes
+      `Updated task details`
+    );
+
+    // Notifications...
     const nextAssignee = data.assigneeId === undefined ? task.assigneeId : data.assigneeId;
     if (nextAssignee && nextAssignee !== task.assigneeId) {
       const [assignee, dept, ev] = await Promise.all([
@@ -206,11 +254,26 @@ export class TasksService {
               taskTitle: updated.title,
               departmentName: dept?.name,
               eventName: ev?.name,
+              actorName: 'Someone', // TODO: Fetch actor name
             });
           } catch (e: any) {
             this.logger.warn(`Email notify (update) failed: ${e?.message || e}`);
           }
         });
+
+        // In-app notification
+        try {
+          await this.notificationsService.create({
+            userId: nextAssignee!,
+            eventId,
+            kind: 'TASK_ASSIGNED',
+            title: 'Task Assigned',
+            body: `You were assigned to "${updated.title}"`,
+            link: `/events/${eventId}/tasks/${taskId}`,
+          });
+        } catch (e: any) {
+          this.logger.warn(`In-app notification (update assign) failed: ${e?.message || e}`);
+        }
       }
     }
     return updated;
@@ -218,12 +281,21 @@ export class TasksService {
 
   /* ---------- Change Status ---------- */
   async changeStatus(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: ChangeTaskStatusDto) {
-    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({ where: { id: taskId, eventId, departmentId, deletedAt: null } });
     if (!task) throw new NotFoundException();
 
-    if (role !== 'SUPER' && !canUpdateTask(role as EventRole, task, actor.userId, sameDept)) {
-      throw new ForbiddenException('Cannot update this task');
+    // Check blocking dependencies if status is changing to 'done' (or any terminal state if we had more)
+    // Assuming 'done' is the only completed state for now.
+    if (dto.status === 'done') {
+      const blockers = await this.prisma.taskDependency.count({
+        where: {
+          blockedId: taskId,
+          blocker: { status: { not: 'done' } } // Count blockers that are NOT done
+        }
+      });
+      if (blockers > 0) {
+        throw new ForbiddenException(`Cannot complete task. It is blocked by ${blockers} incomplete task(s).`);
+      }
     }
 
     const data: any = { status: dto.status };
@@ -233,62 +305,92 @@ export class TasksService {
     }
     if (dto.status === TaskStatus.done) data.completedAt = new Date();
 
-    return this.prisma.task.update({
+    const updated = await this.prisma.task.update({
       where: { id: task.id },
       data,
       select: { id: true, status: true, progressPct: true, completedAt: true, updatedAt: true },
     });
+
+    // 🔍 AUDIT LOG
+    this.auditService.log(
+      actor.userId,
+      eventId,
+      'TASK_UPDATED',
+      'Task',
+      task.id,
+      { status: dto.status, oldStatus: task.status },
+      `Changed status to ${dto.status}`
+    );
+
+    return updated;
   }
 
   /* ---------- Delete (soft) ---------- */
   async remove(eventId: string, departmentId: string, taskId: string, actor: Actor) {
-    const { role, sameDept } = await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({ where: { id: taskId, eventId, departmentId, deletedAt: null } });
     if (!task) throw new NotFoundException();
-
-    if (role !== 'SUPER' && !canDeleteTask(role as EventRole, task, actor.userId, sameDept)) {
-      throw new ForbiddenException('Cannot delete this task');
-    }
 
     await this.prisma.task.update({
       where: { id: task.id },
       data: { deletedAt: new Date() },
     });
+
+    // 🔍 AUDIT LOG
+    this.auditService.log(
+      actor.userId,
+      eventId,
+      'TASK_DELETED',
+      'Task',
+      task.id,
+      undefined,
+      `Deleted task "${task.title}"`
+    );
+
     return { ok: true };
+  }
+
+  async getActivity(eventId: string, departmentId: string, taskId: string, actor: Actor) {
+    const task = await this.prisma.task.findFirst({ where: { id: taskId, eventId, departmentId } }); // Allow viewing history even if soft deleted? maybe not.
+    if (!task) throw new NotFoundException();
+
+    return this.auditService.getHistory('Task', taskId);
   }
 
   /* ---------- Dependencies ---------- */
   async listDependencies(eventId: string, departmentId: string, taskId: string, actor: Actor) {
-    await this.getActorRole(eventId, departmentId, actor);
     const task = await this.prisma.task.findFirst({ where: { id: taskId, eventId, deletedAt: null } });
     if (!task) throw new NotFoundException();
+
+    // We assume if you can see the task, you can see deps
+    // blockedId = this task (downstream/blocked)
     const blockers = await this.prisma.taskDependency.findMany({
-      where: { downstreamId: task.id },
-      include: { upstream: { select: { id: true, title: true, status: true, priority: true, dueAt: true } } },
+      where: { blockedId: task.id },
+      include: { blocker: { select: { id: true, title: true, status: true, priority: true, dueAt: true, department: { select: { id: true, name: true } } } } },
     });
+    // blockerId = this task (upstream/blocker)
     const dependents = await this.prisma.taskDependency.findMany({
-      where: { upstreamId: task.id },
-      include: { downstream: { select: { id: true, title: true, status: true, priority: true, dueAt: true } } },
+      where: { blockerId: task.id },
+      include: { blocked: { select: { id: true, title: true, status: true, priority: true, dueAt: true, department: { select: { id: true, name: true } } } } },
     });
     return {
-      blockers: blockers.map((d) => ({ upstreamId: d.upstreamId, depType: d.depType, task: d.upstream })),
-      dependents: dependents.map((d) => ({ downstreamId: d.downstreamId, depType: d.depType, task: d.downstream })),
+      blockers: blockers.map((d) => ({ blockerId: d.blockerId, task: d.blocker })),
+      dependents: dependents.map((d) => ({ blockedId: d.blockedId, task: d.blocked })),
     };
   }
 
   async addDependency(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: AddDependencyDto) {
-    const { role } = await this.getActorRole(eventId, departmentId, actor);
-    if (role !== 'SUPER' && !(ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD)) {
-      throw new ForbiddenException('Insufficient role to link dependency');
-    }
-    const downstream = await this.prisma.task.findFirst({ where: { id: taskId, eventId, deletedAt: null } });
-    if (!downstream) throw new NotFoundException('Task not found');
-    const upstream = await this.prisma.task.findFirst({ where: { id: dto.upstreamId, eventId, deletedAt: null } });
-    if (!upstream) throw new NotFoundException('Upstream task not found');
-    if (upstream.id === downstream.id) throw new BadRequestException('Cannot depend on itself');
+    // Current task is the one getting BLOCKED (downstream)
+    const blocked = await this.prisma.task.findFirst({ where: { id: taskId, eventId, deletedAt: null } });
+    if (!blocked) throw new NotFoundException('Task not found');
+
+    // The task that BLOCKS (upstream)
+    const blocker = await this.prisma.task.findFirst({ where: { id: dto.blockerId, eventId, deletedAt: null } });
+    if (!blocker) throw new NotFoundException('Blocker task not found');
+
+    if (blocker.id === blocked.id) throw new BadRequestException('Cannot depend on itself');
 
     await this.prisma.taskDependency.create({
-      data: { upstreamId: upstream.id, downstreamId: downstream.id, depType: dto.depType as DependencyType },
+      data: { blockerId: blocker.id, blockedId: blocked.id },
     }).catch((e) => {
       if (String(e?.code) === 'P2002') return; // unique constraint -> ignore
       throw e;
@@ -297,13 +399,26 @@ export class TasksService {
   }
 
   async removeDependency(eventId: string, departmentId: string, taskId: string, actor: Actor, dto: RemoveDependencyDto) {
-    const { role } = await this.getActorRole(eventId, departmentId, actor);
-    if (role !== 'SUPER' && !(ADMIN_ROLES.has(role as EventRole) || (role as EventRole) === EventRole.DEPT_HEAD)) {
-      throw new ForbiddenException('Insufficient role to unlink dependency');
-    }
-    const downstream = await this.prisma.task.findFirst({ where: { id: taskId, eventId, deletedAt: null } });
-    if (!downstream) throw new NotFoundException('Task not found');
-    await this.prisma.taskDependency.deleteMany({ where: { upstreamId: dto.upstreamId, downstreamId: downstream.id } });
+    const blocked = await this.prisma.task.findFirst({ where: { id: taskId, eventId, deletedAt: null } });
+    if (!blocked) throw new NotFoundException('Task not found');
+
+    await this.prisma.taskDependency.deleteMany({ where: { blockerId: dto.blockerId, blockedId: blocked.id } });
     return { ok: true };
+  }
+
+  async searchTasks(eventId: string, query: string, targetDepartmentId?: string) {
+    // Helper to search tasks for dependency linking
+    // Must be in same event.
+    return this.prisma.task.findMany({
+      where: {
+        eventId,
+        deletedAt: null,
+        departmentId: targetDepartmentId || undefined,
+        title: { contains: query }, // Default case-insensitive in MySQL usually? 
+        // If not, use mode: 'insensitive' if Prisma allows (standard in Postgres, mixed in MySQL)
+      },
+      take: 20,
+      select: { id: true, title: true, status: true, department: { select: { id: true, name: true } } }
+    });
   }
 }

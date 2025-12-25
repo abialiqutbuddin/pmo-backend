@@ -10,7 +10,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly jwt: JwtService, private readonly chat: ChatService, private readonly prisma: PrismaService) {}
+  constructor(private readonly jwt: JwtService, private readonly chat: ChatService, private readonly prisma: PrismaService) { }
 
   async handleConnection(client: Socket) {
     try {
@@ -50,17 +50,52 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async onJoin(@MessageBody() data: { conversationId: string }, @ConnectedSocket() client: Socket) {
     try {
       const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
-      // Verify that the user is still a participant of this conversation before joining the room
+      const eventId = (client.data as any).eventId as string;
+
+      // 1. Check if participant
       const p = await this.prisma.participant.findFirst({ where: { conversationId: data.conversationId, userId: user.id } });
-      if (!p) {
-        // notify client that join was denied
-        client.emit('conversation.join-denied', { conversationId: data.conversationId });
+      if (p) {
+        client.join(`conv:${data.conversationId}`);
         return;
       }
-      client.join(`conv:${data.conversationId}`);
+
+      // 2. If not participant, check if system group AND user has global view permission
+      const conv = await this.prisma.conversation.findUnique({ where: { id: data.conversationId }, select: { isSystemGroup: true, eventId: true } });
+      if (conv && conv.isSystemGroup && conv.eventId === eventId) {
+        // Check permissions
+        // (User object only has isSuperAdmin, we might need more or check DB)
+        if (user.isSuperAdmin) {
+          client.join(`conv:${data.conversationId}`);
+          return;
+        }
+        // Check tenant manager or role permission
+        // We can use ChatPermissionsHelper but it's not injected yet? 
+        // ChatGateway has ChatService injected. ChatService has ChatPermissionsHelper.
+        // Let's use ChatService or inject helper directly?
+        // ChatService isn't exposing permissions check directly as public method broadly.
+        // But we can just query Prisma here for speed or inject Helper.
+
+        // Minimal check: Tenant Manager?
+        // We don't have isTenantManager in user token payload usually? 
+        // Let's fetch user role/permissions briefly.
+        const u = await this.prisma.user.findUnique({ where: { id: user.id }, select: { isTenantManager: true, tenantId: true } });
+        if (u?.isTenantManager) {
+          // Verify event belongs to tenant?
+          const evt = await this.prisma.event.findUnique({ where: { id: eventId }, select: { tenantId: true } });
+          if (evt?.tenantId === u.tenantId) {
+            client.join(`conv:${data.conversationId}`);
+            return;
+          }
+        }
+
+        // TODO: Check granular chat:read permission if we want to be perfect.
+        // For now, SuperAdmin + TenantManager is likely sufficient for "view only access" users described.
+      }
+
+      // deny
+      client.emit('conversation.join-denied', { conversationId: data.conversationId });
     } catch (e) {
-      // swallow errors to avoid crashing socket handler
-      try { client.emit('conversation.join-denied', { conversationId: data.conversationId }); } catch {}
+      try { client.emit('conversation.join-denied', { conversationId: data.conversationId }); } catch { }
     }
   }
 
@@ -86,11 +121,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       for (const s of sockets) {
         const u = (s.data as any)?.user?.id;
         if (u === userId) {
-          try { s.leave(room); } catch {}
-          try { s.emit('conversation.kicked', { conversationId }); } catch {}
+          try { s.leave(room); } catch { }
+          try { s.emit('conversation.kicked', { conversationId }); } catch { }
         }
       }
-    } catch {}
+    } catch { }
   }
 
   @SubscribeMessage('attachment.uploaded')
@@ -109,7 +144,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const attachments = links.map((l) => ({ id: l.attachment.id, originalName: l.attachment.originalName, mimeType: l.attachment.mimeType, size: l.attachment.size, objectKey: l.attachment.objectKey }));
       this.server.to(`conv:${msg.conversationId}`).emit('message.attachment', { conversationId: msg.conversationId, messageId: msg.id, attachments });
       return { count: attachments.length };
-    } catch {}
+    } catch { }
   }
 
   @SubscribeMessage('message.react')
@@ -126,5 +161,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const r = await this.chat.markRead(body, user);
     this.server.to(`conv:${body.conversationId}`).emit('conversation.read', { conversationId: body.conversationId, userId: user.id, at: r.at });
     return r;
+  }
+
+  // --- Service-initiated Broadcasts ---
+
+  notifyConversationInvited(userId: string, conversation: any) {
+    this.server.to(`user:${userId}`).emit('conversation.invited', conversation);
+  }
+
+  notifyParticipantsUpdated(conversationId: string) {
+    this.server.to(`conv:${conversationId}`).emit('participants.updated', { conversationId });
+  }
+
+  notifyKicked(conversationId: string, userId: string) {
+    this.server.to(`user:${userId}`).emit('conversation.kicked', { conversationId });
+  }
+
+  notifyJoinDenied(conversationId: string, userId: string) {
+    this.server.to(`user:${userId}`).emit('conversation.join-denied', { conversationId });
   }
 }

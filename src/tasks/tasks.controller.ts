@@ -12,7 +12,7 @@ import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
 @Controller('events/:eventId/departments/:departmentId/tasks')
 @UseGuards(JwtAuthGuard, EventGuard)
 export class TasksController {
-  constructor(private readonly tasks: TasksService) {}
+  constructor(private readonly tasks: TasksService) { }
 
   @Get()
   list(
@@ -28,7 +28,7 @@ export class TasksController {
     return this.tasks.list(
       eventId,
       departmentId,
-      { userId: user.sub, isSuperAdmin: user.isSuperAdmin },
+      { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager },
       { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined, zoneId: zoneId || undefined, zonalDeptRowId: zonalDeptRowId || undefined },
     );
   }
@@ -40,7 +40,16 @@ export class TasksController {
     @CurrentUser() user: any,
     @Body() dto: CreateTaskDto,
   ) {
-    return this.tasks.create(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
+    return this.tasks.create(eventId, departmentId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, dto);
+  }
+
+  @Get('search')
+  search(
+    @Param('eventId') eventId: string,
+    @Query('q') query: string,
+    @Query('targetDeptId') targetDeptId?: string,
+  ) {
+    return this.tasks.searchTasks(eventId, query || '', targetDeptId);
   }
 
   @Get(':taskId')
@@ -50,7 +59,7 @@ export class TasksController {
     @Param('taskId') taskId: string,
     @CurrentUser() user: any,
   ) {
-    return this.tasks.get(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.tasks.get(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
   }
 
   @Patch(':taskId')
@@ -61,7 +70,7 @@ export class TasksController {
     @CurrentUser() user: any,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.tasks.update(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
+    return this.tasks.update(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, dto);
   }
 
   @Patch(':taskId/status')
@@ -72,7 +81,7 @@ export class TasksController {
     @CurrentUser() user: any,
     @Body() dto: ChangeTaskStatusDto,
   ) {
-    return this.tasks.changeStatus(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
+    return this.tasks.changeStatus(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, dto);
   }
 
   @Delete(':taskId')
@@ -82,7 +91,17 @@ export class TasksController {
     @Param('taskId') taskId: string,
     @CurrentUser() user: any,
   ) {
-    return this.tasks.remove(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.tasks.remove(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
+  }
+
+  @Get(':taskId/activity')
+  activity(
+    @Param('eventId') eventId: string,
+    @Param('departmentId') departmentId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.getActivity(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
   }
 
   /* ---- Dependencies ---- */
@@ -93,7 +112,7 @@ export class TasksController {
     @Param('taskId') taskId: string,
     @CurrentUser() user: any,
   ) {
-    return this.tasks.listDependencies(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.tasks.listDependencies(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
   }
 
   @Post(':taskId/dependencies')
@@ -104,7 +123,7 @@ export class TasksController {
     @CurrentUser() user: any,
     @Body() dto: AddDependencyDto,
   ) {
-    return this.tasks.addDependency(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
+    return this.tasks.addDependency(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, dto);
   }
 
   @Delete(':taskId/dependencies')
@@ -115,6 +134,6 @@ export class TasksController {
     @CurrentUser() user: any,
     @Body() dto: RemoveDependencyDto,
   ) {
-    return this.tasks.removeDependency(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin }, dto);
+    return this.tasks.removeDependency(eventId, departmentId, taskId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, dto);
   }
 }

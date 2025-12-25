@@ -9,10 +9,17 @@ export class CreateUserDto {
   // only super-admin can set this; ignored otherwise
   @IsOptional() @IsBoolean() isSuperAdmin?: boolean;
 
+  // tenant manager flag - can be set by super admin or tenant manager
+  @IsOptional() @IsBoolean() isTenantManager?: boolean;
+
   // optional profile fields
   @IsOptional() @IsString() profileImage?: string;
   @IsOptional() @IsString() organization?: string;
   @IsOptional() @IsString() designation?: string;
   @IsOptional() @IsString() phoneNumber?: string;
   @IsOptional() @IsBoolean() isDisabled?: boolean;
+
+  // Optional: Assign to events on creation
+  @IsOptional() eventIds?: string[];
+  @IsOptional() @IsString() eventRoleId?: string;
 }

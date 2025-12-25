@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
 import { AccessJwtClaims } from '../types';
+import { PrismaService } from '../../prisma/prisma.service';
 
 function requiredEnv(name: string): string {
   const v = process.env[name];
@@ -12,7 +13,7 @@ function requiredEnv(name: string): string {
 
 @Injectable()
 export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     const opts: StrategyOptions = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: requiredEnv('JWT_ACCESS_SECRET'),
@@ -21,7 +22,26 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
     super(opts);
   }
 
-  validate(payload: AccessJwtClaims): AccessJwtClaims {
-    return payload; // becomes req.user
+  async validate(payload: AccessJwtClaims) {
+    // Hydrate permissions
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: {
+        roles: {
+          include: {
+            permissions: {
+              include: { module: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user || user.isDisabled) { // Optional: re-check disabled status
+      return null; // or throw Unauthorized
+    }
+
+    // Return full user object which acts as the 'user' property in Request
+    return { ...user, sub: user.id };
   }
 }

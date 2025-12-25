@@ -1,13 +1,19 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ReactDto } from './dto/react.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
+import { ChatPermissionsHelper } from './chat-permissions.helper';
+import { ChatGateway } from './chat.gateway';
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chatPerms: ChatPermissionsHelper,
+    @Inject(forwardRef(() => ChatGateway)) private readonly gateway: ChatGateway,
+  ) { }
 
   async ensureEventMember(eventId: string, userId: string, isSuperAdmin: boolean) {
     if (isSuperAdmin) return;
@@ -30,21 +36,49 @@ export class ChatService {
           ],
         },
       },
-      select: { id: true, eventId: true, kind: true, title: true, departmentId: true, createdAt: true },
+      select: { id: true, eventId: true, kind: true, title: true, departmentId: true, createdAt: true, participants: { select: { userId: true, user: { select: { fullName: true, email: true } } } } },
     });
+
+    // Notify invited participants
+    for (const p of conv.participants) {
+      if (p.userId !== actor.id) {
+        this.gateway.notifyConversationInvited(p.userId, conv);
+      }
+    }
+
     return conv;
   }
 
-  async listConversations(eventId: string, actor: { id: string; isSuperAdmin: boolean }) {
+  async listConversations(eventId: string, actor: { id: string; isSuperAdmin: boolean; isTenantManager?: boolean }) {
     await this.ensureEventMember(eventId, actor.id, actor.isSuperAdmin);
+
+    // Check if user has global chat:read permission (can view all system groups)
+    const isAdmin = actor.isSuperAdmin || actor.isTenantManager;
+    const chatPerms = isAdmin ? null : await this.chatPerms.getUserChatPermissions(eventId, actor.id);
+    const hasGlobalChatRead = isAdmin || chatPerms?.canViewAllSystemGroups;
+
+    // Build where clause
+    const whereClause: any = { eventId, isArchived: false };
+    if (hasGlobalChatRead) {
+      // Can see all system groups OR conversations they're a participant of
+      whereClause.OR = [
+        { isSystemGroup: true },
+        { participants: { some: { userId: actor.id } } },
+      ];
+    } else {
+      // Only see conversations they're a participant of
+      whereClause.participants = { some: { userId: actor.id } };
+    }
+
     const rows = await this.prisma.conversation.findMany({
-      where: { eventId, isArchived: false, participants: { some: { userId: actor.id } } },
+      where: whereClause,
       select: {
         id: true,
         kind: true,
         title: true,
         departmentId: true,
-        // issueId removed
+        isActive: true,
+        isSystemGroup: true,
         updatedAt: true,
         participants: { select: { userId: true, lastReadAt: true, user: { select: { id: true, fullName: true, email: true } } } },
         messages: {
@@ -81,16 +115,17 @@ export class ChatService {
         kind: r.kind,
         title: r.title,
         departmentId: r.departmentId,
-        // issueId removed
+        isActive: r.isActive,
+        isSystemGroup: r.isSystemGroup,
         updatedAt: r.updatedAt,
         lastMessage: r.messages && r.messages[0]
           ? {
-              id: r.messages[0].id,
-              authorId: r.messages[0].authorId,
-              body: r.messages[0].body,
-              createdAt: r.messages[0].createdAt,
-              author: r.messages[0].author,
-            }
+            id: r.messages[0].id,
+            authorId: r.messages[0].authorId,
+            body: r.messages[0].body,
+            createdAt: r.messages[0].createdAt,
+            author: r.messages[0].author,
+          }
           : null,
         participants: r.participants,
         unreadCount,
@@ -100,12 +135,35 @@ export class ChatService {
     return results;
   }
 
-  async sendMessage(dto: SendMessageDto, actor: { id: string; isSuperAdmin: boolean }) {
-    const conv = await this.prisma.conversation.findUnique({ where: { id: dto.conversationId }, select: { eventId: true } });
+  async sendMessage(dto: SendMessageDto, actor: { id: string; isSuperAdmin: boolean; isTenantManager?: boolean }) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: dto.conversationId },
+      select: { eventId: true, isActive: true, isSystemGroup: true },
+    });
     if (!conv) throw new NotFoundException();
+    if (!conv.isActive) throw new ForbiddenException('This channel is read-only');
     await this.ensureEventMember(conv.eventId, actor.id, actor.isSuperAdmin);
-    const isParticipant = await this.prisma.participant.findFirst({ where: { conversationId: dto.conversationId, userId: actor.id } });
-    if (!isParticipant) throw new ForbiddenException('Not a participant');
+
+    const isParticipant = await this.prisma.participant.findFirst({
+      where: { conversationId: dto.conversationId, userId: actor.id },
+    });
+
+    if (!isParticipant) {
+      // If not a participant, check if they have global send_message permission
+      if (conv.isSystemGroup) {
+        const isAdmin = actor.isSuperAdmin || actor.isTenantManager;
+        if (!isAdmin) {
+          const perms = await this.chatPerms.getUserChatPermissions(conv.eventId, actor.id);
+          if (!perms.canSendToSystemGroups) {
+            throw new ForbiddenException('Not a participant');
+          }
+        }
+        // Admin or has send permission - allow
+      } else {
+        throw new ForbiddenException('Not a participant');
+      }
+    }
+
     const msg = await this.prisma.message.create({
       data: { conversationId: dto.conversationId, authorId: actor.id, body: dto.body, parentId: dto.parentId },
       select: {
@@ -141,7 +199,6 @@ export class ChatService {
     const conv = await this.prisma.conversation.findUnique({ where: { id: dto.conversationId }, select: { eventId: true } });
     if (!conv) throw new NotFoundException();
     await this.ensureEventMember(conv.eventId, actor.id, actor.isSuperAdmin);
-    // Do NOT recreate missing participants; only update if the user is still a member
     await this.ensureParticipant(dto.conversationId, actor.id);
     const now = new Date();
     await this.prisma.participant.update({
@@ -159,8 +216,19 @@ export class ChatService {
 
   async addParticipants(conversationId: string, userIds: string[], actor: { id: string; isSuperAdmin: boolean }) {
     await this.ensureParticipant(conversationId, actor.id);
-    const conv = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { eventId: true, kind: true, participants: { where: { userId: actor.id }, select: { role: true } } } });
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { id: true, eventId: true, kind: true, title: true, isSystemGroup: true, participants: { where: { userId: actor.id }, select: { role: true } } },
+    });
     if (!conv) throw new NotFoundException();
+
+    // Block manual member management for system groups
+    if (conv.isSystemGroup) {
+      throw new ForbiddenException(
+        'Cannot manually add members to system groups. Membership is managed via department assignments and role permissions.'
+      );
+    }
+
     // Only OWNER can add users to GROUP conversations
     if (conv.kind === 'GROUP') {
       const myRole = conv.participants?.[0]?.role || 'MEMBER';
@@ -178,13 +246,32 @@ export class ChatService {
     const names = users.map(u => u.fullName || u.email).join(', ');
     const m = await this.prisma.message.create({ data: { conversationId, authorId: actor.id, body: `added ${names}` }, select: { id: true } });
     await this.prisma.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
+
+    // Notify new members
+    for (const uid of toAdd) {
+      this.gateway.notifyConversationInvited(uid, conv);
+    }
+    // Notify room of list update
+    this.gateway.notifyParticipantsUpdated(conversationId);
+
     return { added: toAdd.length, messageId: m.id };
   }
 
   async removeParticipant(conversationId: string, userId: string, actor: { id: string; isSuperAdmin: boolean }) {
     await this.ensureParticipant(conversationId, actor.id);
-    const conv = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { kind: true, participants: { select: { userId: true, role: true } } } });
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { kind: true, isSystemGroup: true, participants: { select: { userId: true, role: true } } },
+    });
     if (!conv) throw new NotFoundException();
+
+    // Block manual member management for system groups
+    if (conv.isSystemGroup) {
+      throw new ForbiddenException(
+        'Cannot manually remove members from system groups. Membership is managed via department assignments.'
+      );
+    }
+
     if (conv.kind !== 'GROUP') throw new ForbiddenException('Not allowed');
     const me = conv.participants.find((p) => p.userId === actor.id);
     if (!me) throw new ForbiddenException('Not in group');
@@ -197,6 +284,17 @@ export class ChatService {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, email: true } });
     const m = await this.prisma.message.create({ data: { conversationId, authorId: actor.id, body: `removed ${u?.fullName || u?.email || userId}` }, select: { id: true } });
     await this.prisma.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
+
+    // Notify logic
+    if (!isSelf) {
+      this.gateway.notifyKicked(conversationId, userId);
+    } else {
+      // I left - notify me anyway to remove from UI list?
+      // Actually if I leave, I might want the conv to disappear from my list immediately.
+      // But UI usually handles optimistic removal.
+    }
+    this.gateway.notifyParticipantsUpdated(conversationId);
+
     return { ok: true, messageId: m.id };
   }
 
@@ -217,6 +315,8 @@ export class ChatService {
     } else {
       await this.prisma.participant.update({ where: { conversationId_userId: { conversationId, userId } }, data: { role: 'MEMBER' } });
     }
+
+    this.gateway.notifyParticipantsUpdated(conversationId);
     return { ok: true };
   }
 

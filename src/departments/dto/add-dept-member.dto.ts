@@ -1,10 +1,8 @@
 // src/departments/dto/add-dept-member.dto.ts
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { EventRole } from '@prisma/client';
+import { IsOptional, IsString } from 'class-validator';
 
 export class AddDeptMemberDto {
   @IsString() userId!: string;
-  @IsEnum(EventRole) role!: EventRole; // must be DEPT_HEAD | DEPT_MEMBER | OBSERVER
-  // departmentId comes from route; no need here
-  @IsOptional() @IsString() note?: string; // optional
+  @IsOptional() @IsString() role?: string; // e.g. "DEPT_HEAD" tag if we use it, or just "Member"
+  @IsOptional() @IsString() note?: string;
 }

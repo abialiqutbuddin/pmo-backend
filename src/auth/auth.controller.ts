@@ -7,13 +7,26 @@ import { RefreshDto } from './dto/refresh.dto';
 @Controller('auth')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService) { }
+
+  @Post('lookup')
+  async lookup(@Body('email') email: string) {
+    if (!email) throw new Error('Email required');
+    return this.auth.lookupTenants(email);
+  }
 
   @Post('login')
   async login(@Req() req: any, @Body() dto: LoginDto) {
     const ua = req.headers['user-agent'];
     const ip = (req.ip || req.connection?.remoteAddress || '').toString();
-    return this.auth.login(dto, ua, ip);
+    const tenantId = req.tenant?.id;
+    if (!tenantId) {
+      // Technically TenantMiddleware should catch this if configured correctly,
+      // but if excluded, we might need error or default logic.
+      // Assuming strict tenancy, throw error.
+      throw new Error('Tenant ID missing in login request context.');
+    }
+    return this.auth.login(dto, tenantId, ua, ip);
   }
 
   @Post('refresh')

@@ -10,11 +10,17 @@ import { CreateTaskFromMessageDto } from './dto/create-task-from-message.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddParticipantDto } from './dto/add-participant.dto';
 import { ChatGateway } from './chat.gateway';
+import { ChatPermissionsHelper } from './chat-permissions.helper';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chat: ChatService, private readonly prisma: PrismaService, private readonly gateway: ChatGateway) {}
+  constructor(
+    private readonly chat: ChatService,
+    private readonly prisma: PrismaService,
+    private readonly gateway: ChatGateway,
+    private readonly chatPerms: ChatPermissionsHelper,
+  ) { }
 
   @Post('conversations')
   createConv(@CurrentUser() user: any, @Body() dto: CreateConversationDto) {
@@ -23,12 +29,25 @@ export class ChatController {
 
   @Get('events/:eventId/conversations')
   list(@Param('eventId') eventId: string, @CurrentUser() user: any) {
-    return this.chat.listConversations(eventId, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.chat.listConversations(eventId, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
   }
 
   @Post('messages')
   send(@CurrentUser() user: any, @Body() dto: SendMessageDto) {
-    return this.chat.sendMessage(dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin });
+    return this.chat.sendMessage(dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
+  }
+
+  @Get('events/:eventId/permissions')
+  async getPermissions(@Param('eventId') eventId: string, @CurrentUser() user: any) {
+    // If admin or tenant manager, they have all permissions
+    if (user.isSuperAdmin || user.isTenantManager) {
+      return {
+        canViewAllSystemGroups: true,
+        canSendToSystemGroups: true,
+        canDeleteMessages: true,
+      };
+    }
+    return this.chatPerms.getUserChatPermissions(eventId, user.sub);
   }
 
   @Post('react')
@@ -112,7 +131,7 @@ export class ChatController {
             this.gateway.server.to(`user:${uid}`).emit('conversation.invited', payload);
           }
         }
-      } catch {}
+      } catch { }
       return res;
     });
   }

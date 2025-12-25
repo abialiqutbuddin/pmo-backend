@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -14,11 +14,30 @@ import { ChatModule } from './chat/chat.module';
 import { MediaModule } from './media/media.module';
 import { VenuesModule } from './venues/venues.module';
 import { ZonesModule } from './zones/zones.module';
+import { TenantModule } from './tenant/tenant.module';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { RbacModule } from './rbac/rbac.module';
+import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
+
 
 @Module({
   imports: [AuthModule,
-    UsersModule, EventsModule,DepartmentsModule,TasksModule, FeedbackModule,AttachmentsModule, ChatModule, MediaModule, VenuesModule, ZonesModule, MailerModule],
+    UsersModule, EventsModule, DepartmentsModule, TasksModule, FeedbackModule, AttachmentsModule, ChatModule, MediaModule, VenuesModule, ZonesModule, MailerModule, TenantModule, RbacModule, AuditModule, NotificationsModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(TenantMiddleware)
+      .exclude(
+        { path: 'tenant', method: RequestMethod.POST }, // Signup
+        { path: 'auth/lookup', method: RequestMethod.POST },
+        { path: 'auth/register-superadmin', method: RequestMethod.POST },
+      )
+      .forRoutes('*');
+  }
+}
