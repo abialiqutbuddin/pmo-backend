@@ -96,17 +96,19 @@ export class EventsService {
                         },
                     });
                     // Also create event membership for tenant managers
-                    await tx.eventMembership.upsert({
+                    // Also create event membership for tenant managers
+                    const existingMb = await tx.eventMembership.findFirst({
                         where: {
-                            eventId_userId_departmentId: {
-                                eventId: event.id,
-                                userId: tm.id,
-                                departmentId: null as any,
-                            },
+                            eventId: event.id,
+                            userId: tm.id,
+                            departmentId: null,
                         },
-                        update: {},
-                        create: { eventId: event.id, userId: tm.id },
                     });
+                    if (!existingMb) {
+                        await tx.eventMembership.create({
+                            data: { eventId: event.id, userId: tm.id },
+                        });
+                    }
                 }
             }
 
