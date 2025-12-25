@@ -103,7 +103,10 @@ export class TasksService {
       where: {
         eventId,
         deletedAt: null,
-        title: { contains: query.trim() },
+        OR: [
+          { title: { contains: query.trim() } },
+          { id: { equals: query.trim() } }
+        ]
       },
       take: limit,
       orderBy: { updatedAt: 'desc' },
