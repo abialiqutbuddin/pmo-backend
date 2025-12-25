@@ -36,7 +36,7 @@ export class TenantService {
             const role = await tx.role.create({
                 data: {
                     tenantId: tenant.id,
-                    name: 'Admin',
+                    name: 'Tenant Manager',
                     description: 'Full access',
                 }
             });

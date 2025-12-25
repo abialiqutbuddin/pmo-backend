@@ -243,7 +243,7 @@ model SessionToken {
   expiresAt DateTime
   revokedAt DateTime?
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tokenHash])
   @@index([userId, expiresAt])
@@ -329,7 +329,7 @@ model EventMembership {
   createdAt    DateTime @default(now())
 
   event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user       User        @relation(fields: [userId], references: [id])
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id])
   invitedBy  User?       @relation("Inviter", fields: [invitedById], references: [id])
   role       Role?       @relation(fields: [roleId], references: [id])
@@ -402,7 +402,7 @@ model Participant {
   isMuted        Boolean   @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
-  user         User         @relation(fields: [userId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
   @@index([userId])
@@ -419,7 +419,7 @@ model Message {
   createdAt      DateTime  @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
-  author       User         @relation("MessageAuthor", fields: [authorId], references: [id])
+  author       User         @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   //attachments     Attachment[]
   reactions    Reaction[]
   parent       Message?     @relation("Thread", fields: [parentId], references: [id])
@@ -454,7 +454,7 @@ model Reaction {
   createdAt DateTime @default(now())
 
   message Message @relation(fields: [messageId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, emoji])
   @@index([messageId])
@@ -601,7 +601,7 @@ model TaskComment {
   updatedAt DateTime @updatedAt
 
   task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user        User                    @relation("TaskCommentAuthor", fields: [userId], references: [id])
+  user        User                    @relation("TaskCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
   attachments TaskCommentAttachment[]
   mentions    TaskCommentMention[]
 
@@ -677,7 +677,7 @@ model ZoneAssignment {
   role   String // e.g., POC, MEMBER
 
   zone Zone @relation(fields: [zoneId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([zoneId, userId])
   @@index([userId])
@@ -692,7 +692,7 @@ model ZoneDeptAssignment {
 
   zone       Zone       @relation(fields: [zoneId], references: [id])
   department Department @relation(fields: [departmentId], references: [id])
-  user       User       @relation(fields: [userId], references: [id], map: "ZoneDeptAssignment_userId_fkey_v2")
+  user       User       @relation(fields: [userId], references: [id], map: "ZoneDeptAssignment_userId_fkey_v2", onDelete: Cascade)
 
   @@unique([zoneId, departmentId, userId])
   @@index([userId])
@@ -806,7 +806,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user  User   @relation(fields: [userId], references: [id])
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   event Event? @relation(fields: [eventId], references: [id])
 
   @@index([userId, createdAt])
@@ -821,7 +821,7 @@ model NotificationPref {
   muted     Boolean  @default(false)
   updatedAt DateTime @updatedAt
 
-  user  User   @relation(fields: [userId], references: [id])
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   event Event? @relation(fields: [eventId], references: [id])
 
   // ✅ channels live here
@@ -860,7 +860,7 @@ model AuditLog {
   createdAt  DateTime    @default(now())
 
   event Event? @relation(fields: [eventId], references: [id])
-  actor User?  @relation("AuditActor", fields: [actorId], references: [id])
+  actor User?  @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([eventId, createdAt])
   @@index([actorId, createdAt])
