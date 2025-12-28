@@ -109,7 +109,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
     const msg = await this.chat.sendMessage({ ...body }, user);
     const payload = { ...msg, isSystem: false } as any;
+
+    // Only emit to conversation room - HTTP API handles user room emissions
     this.server.to(`conv:${body.conversationId}`).emit('message.new', payload);
+
     return payload;
   }
 

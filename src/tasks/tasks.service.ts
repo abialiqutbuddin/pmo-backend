@@ -35,7 +35,7 @@ export class TasksService {
   /* ---------- List (with pagination) ---------- */
   async list(
     eventId: string,
-    departmentId: string | undefined, // Valid to be undefined/null
+    departmentIds: string[] | undefined, // Changed to array
     actor: Actor,
     opts: { cursor?: string; take?: number; assigneeId?: string; zoneId?: string; zonalDeptRowId?: string } = {},
   ) {
@@ -48,19 +48,20 @@ export class TasksService {
     if (!scope.all) {
       if (!scope.departmentIds.length) return []; // No access to any department
 
-      if (!scope.departmentIds.length) return []; // No access to any department
-
-      if (departmentId) {
-        // User requested specific dept. Check if allowed.
-        if (!scope.departmentIds.includes(departmentId)) return [];
-        where.departmentId = departmentId;
+      if (departmentIds && departmentIds.length > 0) {
+        // User requested specific depts. Check if allowed.
+        const allowed = departmentIds.filter(id => scope.departmentIds.includes(id));
+        if (!allowed.length) return []; // None of requested are allowed
+        where.departmentId = { in: allowed };
       } else {
         // User requested "all", but is restricted to specific depts
         where.departmentId = { in: scope.departmentIds };
       }
     } else {
       // Full access. Respect filter if provided.
-      if (departmentId) where.departmentId = departmentId;
+      if (departmentIds && departmentIds.length > 0) {
+        where.departmentId = { in: departmentIds };
+      }
     }
 
     const take = Math.min(Math.max(opts.take ?? 20, 1), 100);
@@ -91,6 +92,13 @@ export class TasksService {
         zoneId: true,
         venueId: true,
         zonalDeptRowId: true,
+        assignee: {
+          select: {
+            id: true,
+            fullName: true,
+            profileImage: true,
+          },
+        },
       },
     });
     return tasks;

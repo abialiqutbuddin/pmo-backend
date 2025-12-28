@@ -66,6 +66,13 @@ export class EventsController {
         return this.events.listMembers(eventId, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
     }
 
+    @Get('events/:eventId/my-memberships')
+    getMyMemberships(@Param('eventId') eventId: string, @CurrentUser() user: any) {
+        return this.events.listUserMemberships(eventId, user.sub);
+    }
+
+
+
     @Post('events/:eventId/members')
     // @UseGuards(EventGuard, RoleGuard)
     @RequirePermission('events', 'assign_members')

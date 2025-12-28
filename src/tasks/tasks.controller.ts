@@ -9,6 +9,31 @@ import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { AddDependencyDto } from './dto/dependencies/add-dependency.dto';
 import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
 
+@Controller('events/:eventId/tasks') // NEW: Central controller
+@UseGuards(JwtAuthGuard, EventGuard)
+export class CentralTasksController {
+  constructor(private readonly tasks: TasksService) { }
+
+  @Get()
+  listAll(
+    @Param('eventId') eventId: string,
+    @Query('departmentIds') departmentIds: string, // Comma separated
+    @CurrentUser() user: any,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+    @Query('assigneeId') assigneeId?: string,
+    @Query('zoneId') zoneId?: string,
+  ) {
+    const deptIds = departmentIds ? departmentIds.split(',').filter(Boolean) : undefined;
+    return this.tasks.list(
+      eventId,
+      deptIds,
+      { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager },
+      { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined, zoneId: zoneId || undefined },
+    );
+  }
+}
+
 @Controller('events/:eventId/departments/:departmentId/tasks')
 @UseGuards(JwtAuthGuard, EventGuard)
 export class TasksController {
@@ -17,7 +42,7 @@ export class TasksController {
   @Get()
   list(
     @Param('eventId') eventId: string,
-    @Param('departmentId') departmentId: string,
+    @Param('departmentId') departmentId: string, // Kept for backward compatibility if inside /departments/:departmentId/tasks route
     @CurrentUser() user: any,
     @Query('cursor') cursor?: string,
     @Query('take') take?: string,
@@ -27,7 +52,7 @@ export class TasksController {
   ) {
     return this.tasks.list(
       eventId,
-      departmentId,
+      departmentId ? [departmentId] : undefined, // Convert single to array
       { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager },
       { cursor, take: take ? Number(take) : undefined, assigneeId: assigneeId || undefined, zoneId: zoneId || undefined, zonalDeptRowId: zonalDeptRowId || undefined },
     );

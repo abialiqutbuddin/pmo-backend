@@ -378,8 +378,29 @@ export class ChatService {
     return conv;
   }
 
-  async listMessages(conversationId: string, actor: { id: string; isSuperAdmin: boolean }, limit = 50, before?: string) {
-    await this.ensureParticipant(conversationId, actor.id);
+  async listMessages(conversationId: string, actor: { id: string; isSuperAdmin: boolean; isTenantManager?: boolean }, limit = 50, before?: string) {
+    // Check if user is participant
+    const p = await this.prisma.participant.findFirst({ where: { conversationId, userId: actor.id } });
+
+    if (!p) {
+      // Not a participant - check if it's a system group and user has permissions
+      const conv = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { isSystemGroup: true, eventId: true } });
+      if (!conv) throw new NotFoundException();
+
+      if (conv.isSystemGroup) {
+        const isAdmin = actor.isSuperAdmin || actor.isTenantManager;
+        if (!isAdmin) {
+          const perms = await this.chatPerms.getUserChatPermissions(conv.eventId, actor.id);
+          if (!perms.canViewAllSystemGroups) {
+            throw new ForbiddenException('Not a participant');
+          }
+        }
+        // Admin or has view permission - allow
+      } else {
+        throw new ForbiddenException('Not a participant');
+      }
+    }
+
     const where: any = { conversationId };
     if (before) where.createdAt = { lt: new Date(before) };
     const rows = await this.prisma.message.findMany({

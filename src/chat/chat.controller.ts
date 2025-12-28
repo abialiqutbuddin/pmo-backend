@@ -33,8 +33,14 @@ export class ChatController {
   }
 
   @Post('messages')
-  send(@CurrentUser() user: any, @Body() dto: SendMessageDto) {
-    return this.chat.sendMessage(dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
+  async send(@CurrentUser() user: any, @Body() dto: SendMessageDto) {
+    const msg = await this.chat.sendMessage(dto, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
+
+    // Broadcast to conversation room - clients should join conv rooms to receive updates
+    const payload = { ...msg, isSystem: false };
+    this.gateway.server.to(`conv:${dto.conversationId}`).emit('message.new', payload);
+
+    return msg;
   }
 
   @Get('events/:eventId/permissions')
@@ -145,7 +151,7 @@ export class ChatController {
   ) {
     const n = Math.max(1, Math.min(200, parseInt(limit || '50', 10)));
     const b = before && before !== 'null' && before !== 'undefined' ? before : undefined;
-    return this.chat.listMessages(conversationId, { id: user.sub, isSuperAdmin: user.isSuperAdmin }, n, b);
+    return this.chat.listMessages(conversationId, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager }, n, b);
   }
 
   @Get('messages/:messageId/readers')

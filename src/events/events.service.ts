@@ -376,6 +376,31 @@ export class EventsService {
         return rows;
     }
 
+    async listUserMemberships(eventId: string, userId: string) {
+        return this.prisma.eventMembership.findMany({
+            where: { eventId, userId },
+            select: {
+                userId: true,
+                departmentId: true,
+                roleId: true,
+                department: { select: { id: true, name: true } },
+                role: {
+                    select: {
+                        id: true,
+                        name: true,
+                        permissions: {
+                            select: {
+                                actions: true,
+                                module: { select: { key: true } }
+                            }
+                        }
+                    }
+                },
+                createdAt: true,
+            },
+        });
+    }
+
     async bulkAddMembers(eventId: string, userIds: string[], roleId: string | undefined, actor: { userId: string; isSuperAdmin: boolean }) {
         if (!userIds || !userIds.length) return { added: 0 };
 

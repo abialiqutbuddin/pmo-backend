@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TasksController } from './tasks.controller';
+import { TasksController, CentralTasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 import { EventTasksController } from './event-tasks.controller';
 import { TaskCommentsController } from './task-comments.controller';
@@ -12,7 +12,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [MailerModule, EventsModule, AuthModule, NotificationsModule],
-  controllers: [TasksController, TaskCommentsController, EventTasksController],
+  controllers: [TasksController, CentralTasksController, TaskCommentsController, EventTasksController],
   providers: [TasksService, TaskCommentsService, PrismaService],
   exports: [TasksService],
 })

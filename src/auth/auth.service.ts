@@ -64,13 +64,44 @@ export class AuthService {
   async lookupTenants(email: string): Promise<{ id: string; name: string; slug: string }[]> {
     const users = await this.prisma.user.findMany({
       where: { email, isDisabled: false },
-      include: { tenant: true },
+      include: {
+        tenant: true,
+        memberships: {
+          include: {
+            event: {
+              include: {
+                tenant: true,
+              },
+            },
+          },
+        },
+      },
     });
-    return users.map((u) => ({
-      id: u.tenant.id,
-      name: u.tenant.name,
-      slug: u.tenant.slug,
-    }));
+
+    const tenantMap = new Map<string, { id: string; name: string; slug: string }>();
+
+    for (const u of users) {
+      // 1. Add home tenant
+      tenantMap.set(u.tenant.id, {
+        id: u.tenant.id,
+        name: u.tenant.name,
+        slug: u.tenant.slug,
+      });
+
+      // 2. Add tenants from event memberships
+      for (const m of u.memberships) {
+        const t = m.event.tenant;
+        if (!tenantMap.has(t.id)) {
+          tenantMap.set(t.id, {
+            id: t.id,
+            name: t.name,
+            slug: t.slug,
+          });
+        }
+      }
+    }
+
+    return Array.from(tenantMap.values());
   }
 
   async refresh(dto: RefreshDto, ua?: string, ip?: string): Promise<TokenPair> {

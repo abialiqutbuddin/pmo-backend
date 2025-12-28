@@ -21,6 +21,11 @@ export class UsersController {
     return this.users.list({ id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
 
+  @Get('me')
+  getCurrent(@CurrentUser() user: any) {
+    return this.users.get(user.sub, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
+  }
+
   @Get(':id')
   get(@Param('id') id: string, @CurrentUser() user: any) {
     return this.users.get(id, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
