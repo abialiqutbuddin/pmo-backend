@@ -10,7 +10,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
 
+  // Track online users per event for push notification filtering
+  private onlineUsers = new Map<string, Set<string>>(); // eventId -> Set of userIds
+
+  // Track which conversation each user is currently viewing
+  private activeConversations = new Map<string, Set<string>>(); // conversationId -> Set of userIds
+
   constructor(private readonly jwt: JwtService, private readonly chat: ChatService, private readonly prisma: PrismaService) { }
+
+  // Public method to check if a user is online in an event
+  isUserOnline(eventId: string, userId: string): boolean {
+    return this.onlineUsers.get(eventId)?.has(userId) ?? false;
+  }
+
+  // Public method to check if a user is currently viewing a specific conversation
+  isUserInConversation(conversationId: string, userId: string): boolean {
+    return this.activeConversations.get(conversationId)?.has(userId) ?? false;
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -35,6 +51,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.join(`event:${eventId}`);
       // Also join a per-user room for targeted notifications (e.g., conversation.invited)
       client.join(`user:${user.id}`);
+
+      // Track online user
+      if (!this.onlineUsers.has(eventId)) {
+        this.onlineUsers.set(eventId, new Set());
+      }
+      this.onlineUsers.get(eventId)!.add(user.id);
+
       this.logger.log(`client ${user.id} connected to event ${eventId}`);
     } catch {
       client.disconnect(true);
@@ -42,8 +65,30 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: Socket) {
-    const { user, eventId } = client.data || {};
-    if (user?.id && eventId) this.logger.log(`client ${user.id} disconnected from event ${eventId}`);
+    const { user, eventId, activeConvs } = client.data || {};
+    if (user?.id && eventId) {
+      // Remove from online tracking
+      const eventUsers = this.onlineUsers.get(eventId);
+      if (eventUsers) {
+        eventUsers.delete(user.id);
+        if (eventUsers.size === 0) {
+          this.onlineUsers.delete(eventId);
+        }
+      }
+      // Clean up active conversation tracking
+      if (activeConvs) {
+        for (const convId of activeConvs) {
+          const convUsers = this.activeConversations.get(convId);
+          if (convUsers) {
+            convUsers.delete(user.id);
+            if (convUsers.size === 0) {
+              this.activeConversations.delete(convId);
+            }
+          }
+        }
+      }
+      this.logger.log(`client ${user.id} disconnected from event ${eventId}`);
+    }
   }
 
   @SubscribeMessage('conversation.join')
@@ -52,44 +97,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
       const eventId = (client.data as any).eventId as string;
 
+      // Helper to track user joining conversation
+      const trackJoin = () => {
+        client.join(`conv:${data.conversationId}`);
+        // Track active conversation for push notification filtering
+        if (!this.activeConversations.has(data.conversationId)) {
+          this.activeConversations.set(data.conversationId, new Set());
+        }
+        this.activeConversations.get(data.conversationId)!.add(user.id);
+        // Store on socket for cleanup on disconnect/leave
+        if (!(client.data as any).activeConvs) {
+          (client.data as any).activeConvs = new Set<string>();
+        }
+        (client.data as any).activeConvs.add(data.conversationId);
+      };
+
       // 1. Check if participant
       const p = await this.prisma.participant.findFirst({ where: { conversationId: data.conversationId, userId: user.id } });
       if (p) {
-        client.join(`conv:${data.conversationId}`);
+        trackJoin();
         return;
       }
 
       // 2. If not participant, check if system group AND user has global view permission
       const conv = await this.prisma.conversation.findUnique({ where: { id: data.conversationId }, select: { isSystemGroup: true, eventId: true } });
       if (conv && conv.isSystemGroup && conv.eventId === eventId) {
-        // Check permissions
-        // (User object only has isSuperAdmin, we might need more or check DB)
         if (user.isSuperAdmin) {
-          client.join(`conv:${data.conversationId}`);
+          trackJoin();
           return;
         }
-        // Check tenant manager or role permission
-        // We can use ChatPermissionsHelper but it's not injected yet? 
-        // ChatGateway has ChatService injected. ChatService has ChatPermissionsHelper.
-        // Let's use ChatService or inject helper directly?
-        // ChatService isn't exposing permissions check directly as public method broadly.
-        // But we can just query Prisma here for speed or inject Helper.
-
-        // Minimal check: Tenant Manager?
-        // We don't have isTenantManager in user token payload usually? 
-        // Let's fetch user role/permissions briefly.
         const u = await this.prisma.user.findUnique({ where: { id: user.id }, select: { isTenantManager: true, tenantId: true } });
         if (u?.isTenantManager) {
-          // Verify event belongs to tenant?
           const evt = await this.prisma.event.findUnique({ where: { id: eventId }, select: { tenantId: true } });
           if (evt?.tenantId === u.tenantId) {
-            client.join(`conv:${data.conversationId}`);
+            trackJoin();
             return;
           }
         }
-
-        // TODO: Check granular chat:read permission if we want to be perfect.
-        // For now, SuperAdmin + TenantManager is likely sufficient for "view only access" users described.
       }
 
       // deny
@@ -101,7 +145,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('conversation.leave')
   async onLeave(@MessageBody() data: { conversationId: string }, @ConnectedSocket() client: Socket) {
+    const user = (client.data as any).user as { id: string; isSuperAdmin: boolean };
     client.leave(`conv:${data.conversationId}`);
+    // Remove from active conversation tracking
+    if (user?.id) {
+      const convUsers = this.activeConversations.get(data.conversationId);
+      if (convUsers) {
+        convUsers.delete(user.id);
+        if (convUsers.size === 0) {
+          this.activeConversations.delete(data.conversationId);
+        }
+      }
+      // Remove from socket's tracked conversations
+      (client.data as any).activeConvs?.delete(data.conversationId);
+    }
   }
 
   @SubscribeMessage('message.send')
@@ -184,5 +241,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   notifyJoinDenied(conversationId: string, userId: string) {
     this.server.to(`user:${userId}`).emit('conversation.join-denied', { conversationId });
+  }
+
+  emitToUser(userId: string, event: string, payload: any) {
+    this.server.to(`user:${userId}`).emit(event, payload);
   }
 }

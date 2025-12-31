@@ -16,7 +16,7 @@ export class NotificationsService {
     constructor(private readonly prisma: PrismaService) { }
 
     async create(dto: CreateNotificationDto) {
-        return this.prisma.notification.create({
+        const notification = await this.prisma.notification.create({
             data: {
                 userId: dto.userId,
                 eventId: dto.eventId,
@@ -25,7 +25,50 @@ export class NotificationsService {
                 body: dto.body,
                 link: dto.link,
             },
+            include: { user: { select: { fcmToken: true } } }
         });
+
+        // Send Push Notification if user has token
+        if (notification.user?.fcmToken) {
+            this.sendPush(notification.user.fcmToken, dto);
+        }
+
+        return notification;
+    }
+
+    private async sendPush(token: string, dto: CreateNotificationDto) {
+        const NOTIFICATIONS_SERVICE_URL = process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:3001';
+        const NOTIFICATIONS_API_KEY = process.env.NOTIFICATIONS_API_KEY || 'dev-key-123';
+
+        try {
+            const axios = require('axios');
+            await axios.post(
+                `${NOTIFICATIONS_SERVICE_URL}/notifications/send`,
+                {
+                    channel: 'PUSH',
+                    profile: 'FCM',
+                    recipient: token,
+                    data: {
+                        title: dto.title,
+                        body: dto.body || 'New notification',
+                        // System notifications usually don't need collapseKey grouping unless specific
+                        data: {
+                            type: 'system',
+                            kind: dto.kind,
+                            link: dto.link,
+                            eventId: dto.eventId
+                        }
+                    }
+                },
+                {
+                    headers: { 'x-api-key': NOTIFICATIONS_API_KEY },
+                    timeout: 5000
+                }
+            );
+            console.log(`[System Push] Sent to ${dto.userId}`);
+        } catch (e) {
+            console.error(`[System Push] Failed to send to ${dto.userId}:`, e.message);
+        }
     }
 
     async listForUser(userId: string, eventId?: string) {

@@ -7,6 +7,7 @@ import { AddDeptMemberDto } from './dto/add-dept-member.dto';
 import { UpdateDeptMemberDto } from './dto/update-dept-member.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatGateway } from '../chat/chat.gateway';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class DepartmentsService {
@@ -14,6 +15,7 @@ export class DepartmentsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly notificationsService: NotificationsService,
+        private readonly eventsService: EventsService,
         @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
     ) { }
 
@@ -31,9 +33,17 @@ export class DepartmentsService {
     /* -------- Departments CRUD -------- */
 
     async list(eventId: string, viewer: { userId: string; isSuperAdmin: boolean; isTenantManager: boolean }) {
-        await this.assertMember(eventId, viewer.userId, viewer.isSuperAdmin, viewer.isTenantManager);
+        const scope = await this.eventsService.getAccessibleScope(eventId, viewer.userId, viewer.isSuperAdmin, viewer.isTenantManager);
+
+        const where: any = { eventId };
+
+        if (!scope.all) {
+            if (!scope.departmentIds.length) return [];
+            where.id = { in: scope.departmentIds };
+        }
+
         return this.prisma.department.findMany({
-            where: { eventId },
+            where,
             select: { id: true, name: true, parentId: true },
             orderBy: { name: 'asc' },
         });

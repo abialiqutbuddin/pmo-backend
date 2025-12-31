@@ -215,5 +215,14 @@ export class UsersService {
 
     await this.prisma.user.delete({ where: { id } });
   }
-}
 
+  async updateFcmToken(userId: string, token: string) {
+    console.log(`[FCM Token] Updating token for user ${userId}: ${token?.substring(0, 20)}...`);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: token },
+    });
+    console.log(`[FCM Token] Token saved for user ${userId}`);
+    return { ok: true };
+  }
+}

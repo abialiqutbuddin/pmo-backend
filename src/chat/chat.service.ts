@@ -139,6 +139,7 @@ export class ChatService {
   }
 
   async sendMessage(dto: SendMessageDto, actor: { id: string; isSuperAdmin: boolean; isTenantManager?: boolean }) {
+    console.log(`[Trace] sendMessage called by ${actor.id} for conv ${dto.conversationId}`);
     const conv = await this.prisma.conversation.findUnique({
       where: { id: dto.conversationId },
       select: { id: true, eventId: true, isActive: true, isSystemGroup: true },
@@ -181,7 +182,7 @@ export class ChatService {
     });
     await this.prisma.conversation.update({ where: { id: dto.conversationId }, data: { updatedAt: new Date() } });
 
-    // Handle @Mentions
+    // Handle @Mentions (in-app notifications)
     if (dto.body) {
       const mentionRegex = /@\[([^\]]+)\]\(user:([^)]+)\)/g;
       const mentionedIds = new Set<string>();
@@ -192,18 +193,19 @@ export class ChatService {
 
       for (const uid of mentionedIds) {
         if (uid === actor.id) continue;
-        // Verify user is in event? NotificationsService typically just creates the record.
-        // It's better to ensure they can access the chat, but for now just notify.
         await this.notifications.create({
           userId: uid,
           eventId: conv.eventId,
           kind: 'MENTION',
           title: `${msg.author?.fullName || 'Someone'} mentioned you in chat`,
           body: (msg.body && msg.body.length > 50) ? msg.body.substring(0, 50) + '...' : (msg.body || 'New message'),
-          link: `/events/${conv.eventId}/chat?roomId=${conv.id}`, // Deep link to chat room
+          link: `/events/${conv.eventId}/chat?roomId=${conv.id}`,
         });
       }
     }
+
+    // Send push notifications to OFFLINE participants (non-muted)
+    await this.sendPushToOfflineParticipants(conv, msg, actor.id);
 
     return msg;
   }
@@ -460,5 +462,106 @@ export class ChatService {
       readAt: p.lastReadAt,
     }));
     return readers;
+  }
+
+  /**
+   * Send push notifications to offline participants
+   * Filters out: sender, muted participants, online users
+   */
+  private async sendPushToOfflineParticipants(
+    conv: { id: string; eventId: string; kind?: string; title?: string | null; isSystemGroup?: boolean },
+    msg: { id: string; body?: string | null; author?: { fullName?: string | null } | null },
+    senderId: string
+  ) {
+    console.log(`[Trace] sendPushToOfflineParticipants called for ${conv.id}`);
+    try {
+      // Get all participants except sender, who are not muted
+      const participants = await this.prisma.participant.findMany({
+        where: {
+          conversationId: conv.id,
+          userId: { not: senderId },
+          isMuted: false,
+        },
+        include: {
+          user: { select: { id: true, fullName: true, fcmToken: true } },
+        },
+      });
+
+      if (participants.length === 0) return;
+
+      // Get conversation details for title
+      const convDetails = await this.prisma.conversation.findUnique({
+        where: { id: conv.id },
+        select: { kind: true, title: true, participants: { select: { user: { select: { fullName: true } } } } },
+      });
+
+      // Filter to users NOT currently viewing this conversation
+      // This means: offline users + online users on other screens all get push
+      // Only users with the chat open (in conversation room) are skipped
+      const recipientsForPush = participants.filter(
+        (p) => !this.gateway.isUserInConversation(conv.id, p.userId)
+      );
+
+      if (recipientsForPush.length === 0) return;
+
+      // Determine notification title based on conversation type
+      let title: string;
+      if (convDetails?.kind === 'DIRECT') {
+        title = msg.author?.fullName || 'New message';
+      } else {
+        title = convDetails?.title || 'Group Chat';
+      }
+
+      // Body is the message preview
+      const body = msg.body?.substring(0, 100) || 'New message';
+
+      // Send push to each offline user with FCM token
+      const NOTIFICATIONS_SERVICE_URL = process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:3001';
+      const NOTIFICATIONS_API_KEY = process.env.NOTIFICATIONS_API_KEY || 'dev-key-123';
+      console.log(`[Push Debug] Recipients for push: ${recipientsForPush.length}, with FCM tokens: ${recipientsForPush.filter(p => p.user.fcmToken).length}`);
+
+      for (const p of recipientsForPush) {
+        // Emit socket event for real-time list updates (to user's personal room)
+        this.gateway.emitToUser(p.userId, 'message.new', msg);
+
+        if (!p.user.fcmToken) {
+          console.log(`[Push Debug] Skipping ${p.userId} - no FCM token`);
+          continue;
+        }
+        console.log(`[Push Debug] Sending push to ${p.userId}`);
+
+        try {
+          const axios = require('axios');
+          await axios.post(
+            `${NOTIFICATIONS_SERVICE_URL}/notifications/send`,
+            {
+              channel: 'PUSH',
+              profile: 'FCM',
+              recipient: p.user.fcmToken,
+              data: {
+                title,
+                body,
+                collapseKey: conv.id,
+                data: {
+                  type: convDetails?.kind === 'DIRECT' ? 'dm' : 'group',
+                  conversationId: conv.id,
+                  eventId: conv.eventId,
+                  senderId,
+                },
+              },
+            },
+            {
+              headers: { 'x-api-key': NOTIFICATIONS_API_KEY },
+              timeout: 5000,
+            }
+          );
+        } catch (pushErr) {
+          // Don't fail the message send if push fails
+          console.error(`Failed to send push to ${p.userId}:`, pushErr);
+        }
+      }
+    } catch (err) {
+      console.error('Error in sendPushToOfflineParticipants:', err);
+    }
   }
 }

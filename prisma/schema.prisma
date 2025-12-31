@@ -197,6 +197,7 @@ model User {
   organization String?
   designation  String?
   phoneNumber  String?
+  fcmToken     String? // Firebase Cloud Messaging device token
 
   // memberships in events
   memberships     EventMembership[] // regular memberships

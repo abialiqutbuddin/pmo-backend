@@ -377,7 +377,7 @@ export class EventsService {
     }
 
     async listUserMemberships(eventId: string, userId: string) {
-        return this.prisma.eventMembership.findMany({
+        const memberships = await this.prisma.eventMembership.findMany({
             where: { eventId, userId },
             select: {
                 userId: true,
@@ -399,6 +399,18 @@ export class EventsService {
                 createdAt: true,
             },
         });
+
+        // Flatten permissions for client consumption
+        return memberships.map(m => ({
+            ...m,
+            role: m.role ? {
+                ...m.role,
+                permissions: m.role.permissions.flatMap(p => {
+                    const actions = p.actions as unknown as string[];
+                    return actions.map(a => `${p.module.key}:${a}`);
+                })
+            } : null
+        }));
     }
 
     async bulkAddMembers(eventId: string, userIds: string[], roleId: string | undefined, actor: { userId: string; isSuperAdmin: boolean }) {

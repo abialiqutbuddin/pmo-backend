@@ -5,9 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ChatModule } from '../chat/chat.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [AuthModule, NotificationsModule, ChatModule],
+  imports: [AuthModule, NotificationsModule, ChatModule, EventsModule],
   controllers: [DepartmentsController],
   providers: [DepartmentsService, PrismaService],
   exports: [DepartmentsService],

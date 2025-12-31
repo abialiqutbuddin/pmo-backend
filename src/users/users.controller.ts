@@ -26,6 +26,11 @@ export class UsersController {
     return this.users.get(user.sub, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
   }
 
+  @Patch('me/fcm-token')
+  async updateFcmToken(@CurrentUser() user: any, @Body() body: { token: string }) {
+    return this.users.updateFcmToken(user.sub, body.token);
+  }
+
   @Get(':id')
   get(@Param('id') id: string, @CurrentUser() user: any) {
     return this.users.get(id, { id: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager, tenantId: user.tenantId });
