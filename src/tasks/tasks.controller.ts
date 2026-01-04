@@ -14,6 +14,16 @@ import { RemoveDependencyDto } from './dto/dependencies/remove-dependency.dto';
 export class CentralTasksController {
   constructor(private readonly tasks: TasksService) { }
 
+  @Get('stats')
+  stats(
+    @Param('eventId') eventId: string,
+    @Query('departmentIds') departmentIds: string,
+    @CurrentUser() user: any,
+  ) {
+    const deptIds = departmentIds ? departmentIds.split(',').filter(Boolean) : undefined;
+    return this.tasks.getStats(eventId, deptIds, { userId: user.sub, isSuperAdmin: user.isSuperAdmin, isTenantManager: user.isTenantManager });
+  }
+
   @Get()
   listAll(
     @Param('eventId') eventId: string,

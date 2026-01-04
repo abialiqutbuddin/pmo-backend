@@ -104,6 +104,201 @@ export class TasksService {
     return tasks;
   }
 
+
+  /* ---------- Stats for Dashboard ---------- */
+  async getStats(
+    eventId: string,
+    departmentIds: string[] | undefined,
+    actor: Actor
+  ) {
+    const { all, departmentIds: allowedDeptIds } = await this.eventsService.getAccessibleScope(eventId, actor.userId, actor.isSuperAdmin, actor.isTenantManager);
+
+    // Determine effective departments to filter by
+    let effectiveDeptIds: string[] | undefined;
+    if (departmentIds?.length) {
+      // User requested specific departments. Validate access.
+      if (!all) {
+        // Must be subset of allowed
+        const invalid = departmentIds.some(id => !allowedDeptIds.includes(id));
+        if (invalid) throw new ForbiddenException('Access to one or more requested departments denied');
+      }
+      effectiveDeptIds = departmentIds;
+    } else {
+      // No specific filter, use all accessible
+      effectiveDeptIds = all ? undefined : allowedDeptIds;
+    }
+
+    // Common WHERE clause
+    const where: any = {
+      eventId,
+      deletedAt: null,
+    };
+
+    if (effectiveDeptIds && effectiveDeptIds.length > 0) {
+      where.departmentId = { in: effectiveDeptIds };
+    } else if (!all && (!effectiveDeptIds || effectiveDeptIds.length === 0)) {
+      // If not all access, and no departments allowed/filtered -> return empty stats
+      // actually if allowedDeptIds is empty and !all means user has NO access.
+      if (!allowedDeptIds.length) {
+        return { quickStats: { myTasksToday: 0, overdue: 0, completedThisWeek: 0, pendingApprovals: 0 }, statusDistribution: {}, priorityTasks: [], upcomingDeadlines: [] };
+      }
+      where.departmentId = { in: allowedDeptIds };
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const next3Days = new Date();
+    next3Days.setDate(next3Days.getDate() + 3);
+
+    const next7Days = new Date();
+    next7Days.setDate(next7Days.getDate() + 7);
+
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+
+    // 1. Quick Stats
+    const [myTasksToday, overdue, completedThisWeek, pendingApprovals] = await Promise.all([
+      // My Tasks Today (Due today, assigned to me, not done)
+      this.prisma.task.count({
+        where: {
+          ...where,
+          status: { notIn: ['done', 'canceled'] }
+        }
+      }),
+      // Overdue (Due before today, not done, assigned to me)
+      this.prisma.task.count({
+        where: {
+          ...where,
+          dueAt: { lt: todayStart },
+          status: { not: 'done' }
+        }
+      }),
+      // Completed This Week
+      this.prisma.task.count({
+        where: {
+          ...where,
+          status: 'done',
+          updatedAt: { gte: weekStart }
+        }
+      }),
+      // Pending Approvals (or High Priority Assigned to Me)
+      this.prisma.task.count({
+        where: { ...where, status: 'in_progress' }
+      })
+    ]);
+
+    // 2. Status Distribution (Global for the scope)
+    const statusRaw = await this.prisma.task.groupBy({
+      by: ['status'],
+      where: where,
+      _count: { status: true }
+    });
+    const statusDistribution = statusRaw.reduce((acc, curr) => {
+      acc[curr.status] = curr._count.status;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // 3. Priority Task List (Next 7 days, High/Urgent, Assigned to Me OR Unassigned)
+    const priorityTasks = await this.prisma.task.findMany({
+      where: {
+        ...where,
+        priority: { in: [1, 2] }, // Assuming numerical priority 1=Highest? Or string? In create method 'priority: dto.priority || 3'. 
+        // Typically 1=High, 3=Low?
+        // Let's assume Low numbers are High priority or vice versa. Usually 1 is High.
+        // Let's check 'create' method again:  priority: dto.priority || 3. Usually 3 is default/medium. 
+        // Let's fetch Top 5 ordered by priority.
+        status: { not: 'done' },
+        dueAt: { lte: next7Days }
+      },
+      take: 5,
+      orderBy: [
+        { priority: 'asc' }, // Assuming 1 is High, 5 is Low.
+        { dueAt: 'asc' }
+      ],
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        dueAt: true,
+        status: true,
+        assignee: { select: { fullName: true, profileImage: true } }
+      }
+    });
+
+    // 4. Upcoming Deadlines
+    const upcomingDeadlines = await this.prisma.task.findMany({
+      where: {
+        ...where,
+        status: { not: 'done' },
+        dueAt: { gte: todayStart, lte: next3Days }
+      },
+      take: 10,
+      orderBy: { dueAt: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        dueAt: true,
+        priority: true,
+        status: true
+      }
+    });
+
+    // 5. Created Today
+    const createdToday = await this.prisma.task.findMany({
+      where: {
+        ...where,
+        createdAt: { gte: todayStart, lte: todayEnd }
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        dueAt: true,
+        createdAt: true,
+        assignee: { select: { fullName: true, profileImage: true } }
+      }
+    });
+
+    // 6. Starting Today
+    const startingToday = await this.prisma.task.findMany({
+      where: {
+        ...where,
+        startAt: { gte: todayStart, lte: todayEnd }
+      },
+      take: 10,
+      orderBy: { priority: 'asc' }, // Higher priority first? or start time?
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        dueAt: true,
+        startAt: true,
+        assignee: { select: { fullName: true, profileImage: true } }
+      }
+    });
+
+    return {
+      quickStats: {
+        myTasksToday,
+        overdue,
+        completedThisWeek,
+        pendingApprovals
+      },
+      statusDistribution,
+      priorityTasks,
+      upcomingDeadlines,
+      createdToday,
+      startingToday
+    };
+  }
+
   /* ---------- Create ---------- */
   async searchEventTasks(eventId: string, query: string, limit = 20) {
     if (!query?.trim()) return [];
